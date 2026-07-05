@@ -95,27 +95,17 @@
     let idleRAF = null;
     let destroyed = false;
     let enabled = true;
-    let envelopeEnabled = false;
-    let envelopeOpen = true;
-
-    function getEnvelopeTransform(){
-      if (!envelopeEnabled) return { lift: 0, scale: 1 };
-      return envelopeOpen
-        ? { lift: -10, scale: 1 }
-        : { lift: 42, scale: 0.84 };
-    }
 
     function apply(extraX = 0, extraY = 0){
-      const env = getEnvelopeTransform();
-      cardEl.style.transform = `translateY(${env.lift}px) scale(${env.scale}) rotateX(${rotX + extraX}deg) rotateY(${rotY + extraY}deg)`;
+      cardEl.style.transform = `rotateX(${rotX + extraX}deg) rotateY(${rotY + extraY}deg)`;
     }
 
     function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
     function onPointerDown(e){
       if (!enabled) return;
-      if (e.target.closest('.sticker')) return;
-      if (pointerId !== null) return;
+      if (e.target.closest('.sticker')) return; // adesivos cuidam do próprio arraste
+      if (pointerId !== null) return; // já existe um ponteiro ativo (evita multitoque)
       pointerId = e.pointerId;
       dragging = true;
       movedEnough = false;
@@ -134,6 +124,7 @@
         const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
         if (dist > 6){
           movedEnough = true;
+          // começou a girar de verdade: cancela seleção/foco de texto
           if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
           const sel = window.getSelection && window.getSelection();
           if (sel) sel.removeAllRanges();
@@ -156,6 +147,7 @@
       dragging = false;
       pointerId = null;
       cardEl.classList.remove('is-grabbing');
+      // sem "chute" de volta: a carta permanece exatamente onde foi solta
     }
 
     sceneEl.addEventListener('pointerdown', onPointerDown);
@@ -164,6 +156,8 @@
     sceneEl.addEventListener('pointercancel', endDrag);
     sceneEl.addEventListener('lostpointercapture', endDrag);
 
+    // animação viva: pequena oscilação contínua quando ninguém toca a carta,
+    // deixando óbvio que é um objeto 3D real mesmo parado.
     function idleLoop(t){
       if (destroyed) return;
       if (!dragging && !isFlipping && enabled){
@@ -201,11 +195,6 @@
         enabled = v;
         if (!v){ dragging = false; cardEl.classList.remove('is-grabbing'); }
       },
-      setEnvelopeState(vEnabled, vOpen){
-        envelopeEnabled = vEnabled;
-        envelopeOpen = vOpen;
-        apply();
-      },
       getFacing(){
         const norm = ((rotY % 360) + 360) % 360;
         return (norm > 90 && norm < 270) ? 'back' : 'front';
@@ -223,13 +212,83 @@
   }
 
   /* ---------------------------------------------------------------------
+     2b. CONTROLADOR DO ENVELOPE 3D — carta e envelope como um único objeto
+     ---------------------------------------------------------------------
+     Nunca usa display/hidden para trocar carta <-> envelope: apenas duas
+     classes de estado no mesmo elemento (.has-envelope / .is-sealed),
+     e o CSS cuida da transição de encaixe/abertura com profundidade real.
+  --------------------------------------------------------------------- */
+  function createEnvelopeController(root, hooks = {}){
+    const { onActivate, onDeactivate, onSeal, onUnseal } = hooks;
+    let active = false;
+    let sealed = false;
+    let animating = false;
+
+    function activate(){
+      if (active) return;
+      active = true;
+      root.classList.add('has-envelope');
+      onActivate && onActivate();
+    }
+
+    function deactivate(){
+      if (!active) return;
+      const finish = () => {
+        active = false;
+        root.classList.remove('has-envelope');
+        onDeactivate && onDeactivate();
+      };
+      if (sealed) unseal(finish); else finish();
+    }
+
+    function seal(cb){
+      if (!active || sealed || animating){ cb && cb(); return; }
+      animating = true;
+      activate();
+      root.classList.add('is-sealed');
+      sealed = true;
+      onSeal && onSeal();
+      setTimeout(() => { animating = false; cb && cb(); }, 1060);
+    }
+
+    function unseal(cb){
+      if (!sealed || animating){ cb && cb(); return; }
+      animating = true;
+      root.classList.remove('is-sealed');
+      sealed = false;
+      onUnseal && onUnseal();
+      setTimeout(() => { animating = false; cb && cb(); }, 950);
+    }
+
+    function toggleSeal(){
+      if (animating) return;
+      if (sealed) unseal(); else seal();
+    }
+
+    function reset(){
+      active = false; sealed = false; animating = false;
+      root.classList.remove('has-envelope', 'is-sealed');
+    }
+
+    function setInstant(activeVal, sealedVal){
+      active = activeVal; sealed = sealedVal; animating = false;
+      root.classList.toggle('has-envelope', activeVal);
+      root.classList.toggle('is-sealed', sealedVal);
+    }
+
+    return {
+      activate, deactivate, seal, unseal, toggleSeal, reset, setInstant,
+      isActive: () => active,
+      isSealed: () => sealed
+    };
+  }
+
+  /* ---------------------------------------------------------------------
      3. REFERÊNCIAS AO DOM
   --------------------------------------------------------------------- */
   const openEditorBtn  = document.getElementById('openEditorBtn');
   const openDrawerBtn  = document.getElementById('openDrawerBtn');
   const closeEditorBtn = document.getElementById('closeEditorBtn');
-  const stage = document.getElementById('stage');
-  const stageHint = stage.querySelector('.stage__hint');
   const editor         = document.getElementById('editor');
   const editorTitleText = document.getElementById('editorTitleText');
 
@@ -237,7 +296,14 @@
   const saveBtn  = document.getElementById('saveBtn');
   const sendBtn  = document.getElementById('sendBtn');
 
+  const stage = document.getElementById('stage');
+  const stageHint = document.getElementById('stageHint');
   const stageScene = document.getElementById('stageScene');
+  const letterObject = document.getElementById('letterObject');
+  const env3dBack = document.getElementById('env3dBack');
+  const env3dFlap = document.getElementById('env3dFlap');
+  const envelopeToggle = document.getElementById('envelopeToggle');
+  const sealToggleBtn = document.getElementById('sealToggleBtn');
   const card3d  = document.getElementById('card3d');
   const frameFront = document.getElementById('frameFront');
   const frameBack  = document.getElementById('frameBack');
@@ -266,8 +332,6 @@
   const styleBtns      = document.querySelectorAll('#styles .style-card');
   const shapeBtns      = document.querySelectorAll('#shapes .shape-card');
   const stickerPicker  = document.querySelectorAll('#stickerPicker .sticker-btn');
-  const envelope3dToggle = document.getElementById('envelope3dToggle');
-  const stageEnvelope = document.getElementById('stageEnvelope');
   const drawColorBtns  = document.querySelectorAll('#drawColors .swatch');
   const drawSizeSlider = document.getElementById('drawSize');
   const clearDrawBtn   = document.getElementById('clearDrawBtn');
@@ -300,11 +364,12 @@
   // visualizador
   const viewer = document.getElementById('viewer');
   const closeViewerBtn = document.getElementById('closeViewerBtn');
-  const viewerEnvelopeStage = document.getElementById('viewerEnvelopeStage');
-  const viewerEnvelope = document.getElementById('viewerEnvelope');
-  const viewerFromHint = document.getElementById('viewerFromHint');
+  const viewerHint = document.getElementById('viewerHint');
   const viewerStage = document.getElementById('viewerStage');
   const viewerScene = document.getElementById('viewerScene');
+  const viewerLetterObject = document.getElementById('viewerLetterObject');
+  const viewerEnvBack = document.getElementById('viewerEnvBack');
+  const viewerEnvFlap = document.getElementById('viewerEnvFlap');
   const viewerCard3d = document.getElementById('viewerCard3d');
   const viewerFrameFront = document.getElementById('viewerFrameFront');
   const viewerFrameBack  = document.getElementById('viewerFrameBack');
@@ -331,7 +396,29 @@
   let editingId = null;
   let editorRotator = null;
   let viewerRotator = null;
-  let envelopeOpen = false;
+
+  const DEFAULT_STAGE_HINT = 'arraste em qualquer ponto da carta para girá-la livremente em 3D';
+  const SEALED_STAGE_HINT  = 'carta selada — toque no envelope para abrir';
+
+  function updateSealUI(isSealed){
+    sealToggleBtn.textContent = isSealed ? '✉ Abrir carta' : '✉ Selar carta';
+    stageHint.textContent = isSealed ? SEALED_STAGE_HINT : DEFAULT_STAGE_HINT;
+  }
+
+  const editorEnvelope = createEnvelopeController(letterObject, {
+    onActivate(){ envelopeToggle.checked = true; sealToggleBtn.disabled = false; },
+    onDeactivate(){ envelopeToggle.checked = false; sealToggleBtn.disabled = true; updateSealUI(false); },
+    onSeal(){ if (editorRotator) editorRotator.setEnabled(false); updateSealUI(true); },
+    onUnseal(){ if (editorRotator) editorRotator.setEnabled(true); updateSealUI(false); }
+  });
+
+  envelopeToggle.addEventListener('change', () => {
+    if (envelopeToggle.checked) editorEnvelope.activate();
+    else editorEnvelope.deactivate();
+  });
+  sealToggleBtn.addEventListener('click', () => editorEnvelope.toggleSeal());
+  env3dFlap.addEventListener('click', () => editorEnvelope.toggleSeal());
+  env3dBack.addEventListener('click', () => { if (editorEnvelope.isActive()) editorEnvelope.toggleSeal(); });
 
   function createBlankLetter(){
     return {
@@ -341,7 +428,6 @@
       size: 'media',
       shape: 'classico',
       envelopeColor: '#D9C2A6',
-      envelope3d: true,
       font: 'caveat',
       textColor: '#4A3B3B',
       fontSize: 20,
@@ -372,6 +458,14 @@
     if (editorRotator) editorRotator.destroy();
     editorRotator = createRotator(stageScene, card3d);
 
+    // sempre reabre com o envelope desativado e a carta fora dele, para
+    // não herdar o estado de uma sessão de edição anterior
+    editorEnvelope.reset();
+    envelopeToggle.checked = false;
+    sealToggleBtn.disabled = true;
+    updateSealUI(false);
+    letterObject.style.setProperty('--env-color', letter.envelopeColor);
+
     // sempre reabre na aba "Papel", com o desenho desativado, para não
     // herdar um estado de "modo desenho" de uma sessão de edição anterior
     tabs.forEach(t => t.classList.remove('is-active'));
@@ -393,6 +487,7 @@
     editor.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
     if (editorRotator){ editorRotator.destroy(); editorRotator = null; }
+    editorEnvelope.reset();
   }
 
   openEditorBtn.addEventListener('click', () => openEditor(null));
@@ -468,29 +563,9 @@
     btn.addEventListener('click', () => {
       letter.envelopeColor = btn.dataset.envcolor;
       setActive(envelopeColorBtns, btn);
-      applyEnvelope();
+      letterObject.style.setProperty('--env-color', letter.envelopeColor);
     });
   });
-
-  if (envelope3dToggle){
-    envelope3dToggle.addEventListener('click', () => {
-      letter.envelope3d = !letter.envelope3d;
-      if (letter.envelope3d){
-        envelopeOpen = false;
-      } else {
-        envelopeOpen = true;
-      }
-      applyEnvelope();
-    });
-  }
-
-  if (stageEnvelope){
-    stageEnvelope.addEventListener('click', () => {
-      if (!letter.envelope3d) return;
-      envelopeOpen = !envelopeOpen;
-      applyEnvelope();
-    });
-  }
 
   fontBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -551,39 +626,6 @@
   function applyShape(){
     card3d.classList.remove('shape--classico','shape--pergaminho','shape--coracao');
     card3d.classList.add(`shape--${letter.shape}`);
-  }
-
-  function applyEnvelope(){
-    const enabled = letter.envelope3d !== false;
-
-    stage.classList.toggle('is-envelope-enabled', enabled);
-    stage.classList.toggle('is-envelope-disabled', !enabled);
-    stage.classList.toggle('is-envelope-open', enabled && envelopeOpen);
-    stage.classList.toggle('is-envelope-closed', enabled && !envelopeOpen);
-
-    if (stageEnvelope){
-      stageEnvelope.setAttribute('aria-hidden', String(!enabled));
-      stageEnvelope.classList.toggle('is-open', enabled && envelopeOpen);
-    }
-
-    if (stageHint){
-      stageHint.textContent = !enabled
-        ? 'envelope desativado: a carta fica totalmente exposta'
-        : envelopeOpen
-          ? 'toque no envelope para recolher a carta'
-          : 'toque no envelope para abrir a carta';
-    }
-
-    if (envelope3dToggle){
-      envelope3dToggle.classList.toggle('is-active', enabled);
-      envelope3dToggle.setAttribute('aria-pressed', String(enabled));
-      envelope3dToggle.textContent = enabled ? 'Ativado' : 'Desativado';
-    }
-
-    if (editorRotator){
-      editorRotator.setEnvelopeState(enabled, envelopeOpen);
-      editorRotator.setEnabled(!enabled || envelopeOpen);
-    }
   }
 
   function applyTextStyle(){
@@ -831,8 +873,7 @@
     applyPaper();
     applySize();
     applyShape();
-    envelopeOpen = false;
-    applyEnvelope();
+    letterObject.style.setProperty('--env-color', letter.envelopeColor);
 
     setActiveByValue(fontBtns, 'font', letter.font);
     setActiveByValue(textColorBtns, 'color', letter.textColor);
@@ -1104,6 +1145,39 @@
   --------------------------------------------------------------------- */
   let currentMailEntry = null;
 
+  const VIEWER_SEALED_HINT = 'toque no envelope para abrir';
+
+  function updateViewerSealUI(isSealed){
+    viewerHint.textContent = isSealed
+      ? `carta de ${currentMailEntry ? currentMailEntry.fromId : ''} • ${VIEWER_SEALED_HINT}`
+      : 'arraste para girar';
+    viewerFlipBtn.hidden = isSealed;
+  }
+
+  const viewerEnvelope = createEnvelopeController(viewerLetterObject, {
+    onSeal(){
+      if (viewerRotator){ viewerRotator.destroy(); viewerRotator = null; }
+      updateViewerSealUI(true);
+    },
+    onUnseal(){
+      markCurrentMailRead();
+      if (viewerRotator) viewerRotator.destroy();
+      viewerRotator = createRotator(viewerScene, viewerCard3d);
+      updateViewerSealUI(false);
+    }
+  });
+
+  function markCurrentMailRead(){
+    if (!currentMailEntry || currentMailEntry.read) return;
+    currentMailEntry.read = true;
+    const mailbox = loadMailbox();
+    const myId = getMyId();
+    const arr = mailbox[myId] || [];
+    const idx = arr.findIndex(m => m.mailId === currentMailEntry.mailId);
+    if (idx > -1){ arr[idx].read = true; mailbox[myId] = arr; persistMailbox(mailbox); }
+    renderInbox();
+  }
+
   function openViewer(entry){
     currentMailEntry = entry;
     const l = entry.letter;
@@ -1112,12 +1186,12 @@
     viewer.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
 
-    // reseta para o estado "envelope fechado"
-    viewerEnvelope.classList.remove('is-open');
-    viewerEnvelope.style.setProperty('--env-color', l.envelopeColor || '#D9C2A6');
-    viewerEnvelopeStage.hidden = false;
-    viewerStage.hidden = true;
-    viewerFromHint.textContent = `carta de ${entry.fromId} • toque para abrir`;
+    // a carta chega sempre selada; o próprio envelope, no mesmo palco,
+    // é o que o destinatário abre — sem trocar de painel
+    if (viewerRotator){ viewerRotator.destroy(); viewerRotator = null; }
+    viewerLetterObject.style.setProperty('--env-color', l.envelopeColor || '#D9C2A6');
+    viewerEnvelope.setInstant(true, true);
+    updateViewerSealUI(true);
 
     populateViewerCard(l);
   }
@@ -1178,28 +1252,8 @@
     layer.appendChild(el);
   }
 
-  function openLetterFromEnvelope(){
-    if (!currentMailEntry) return;
-    viewerEnvelope.classList.add('is-open');
-
-    if (!currentMailEntry.read){
-      currentMailEntry.read = true;
-      const mailbox = loadMailbox();
-      const myId = getMyId();
-      const arr = mailbox[myId] || [];
-      const idx = arr.findIndex(m => m.mailId === currentMailEntry.mailId);
-      if (idx > -1){ arr[idx].read = true; mailbox[myId] = arr; persistMailbox(mailbox); }
-      renderInbox();
-    }
-
-    setTimeout(() => {
-      viewerEnvelopeStage.hidden = true;
-      viewerStage.hidden = false;
-      if (viewerRotator) viewerRotator.destroy();
-      viewerRotator = createRotator(viewerScene, viewerCard3d);
-    }, 550);
-  }
-  viewerEnvelopeStage.addEventListener('click', openLetterFromEnvelope);
+  viewerEnvFlap.addEventListener('click', () => viewerEnvelope.toggleSeal());
+  viewerEnvBack.addEventListener('click', () => viewerEnvelope.toggleSeal());
 
   viewerFlipBtn.addEventListener('click', (e) => {
     e.preventDefault();

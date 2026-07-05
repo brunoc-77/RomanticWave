@@ -112,41 +112,60 @@
 
         <!-- ============ PALCO 3D ============ -->
         <div class="stage" id="stage">
-          <div class="stage__scene" id="stageScene">
-            <div class="stage-envelope" id="stageEnvelope" aria-hidden="true">
-              <div class="stage-envelope__body"></div>
-              <div class="stage-envelope__flap"></div>
-              <div class="stage-envelope__seal">✦</div>
-            </div>
-            <div class="card3d" id="card3d">
 
-              <!-- FRENTE -->
-              <div class="card3d__face card3d__face--front" id="faceFront">
-                <div class="card3d__sheen"></div>
-                <div class="card3d__frame" id="frameFront">
-                  <div class="card3d__photo" id="photoSlot" hidden>
-                    <img id="photoImg" alt="Foto adicionada à carta">
+          <div class="stage__top-controls">
+            <label class="env-switch" id="envSwitchLabel">
+              <input type="checkbox" id="envelopeToggle">
+              <span class="env-switch__track"><span class="env-switch__thumb"></span></span>
+              <span class="env-switch__label">Envelope</span>
+            </label>
+            <button class="seal-btn" id="sealToggleBtn" disabled>✉ Selar carta</button>
+          </div>
+
+          <div class="stage__scene" id="stageScene">
+            <div class="letter-object" id="letterObject">
+
+              <!-- corpo do envelope: sempre no mesmo palco 3D da carta -->
+              <div class="env3d__back" id="env3dBack"></div>
+
+              <div class="card-anim" id="cardAnim">
+                <div class="card3d" id="card3d">
+
+                  <!-- FRENTE -->
+                  <div class="card3d__face card3d__face--front" id="faceFront">
+                    <div class="card3d__sheen"></div>
+                    <div class="card3d__frame" id="frameFront">
+                      <div class="card3d__photo" id="photoSlot" hidden>
+                        <img id="photoImg" alt="Foto adicionada à carta">
+                      </div>
+                      <div class="card3d__text" id="textFront" contenteditable="true" data-placeholder="Escreva aqui o que seu coração quer dizer..."></div>
+                      <div class="card3d__stickers" id="stickerLayerFront"></div>
+                      <canvas class="card3d__draw-layer" id="drawLayerFront"></canvas>
+                    </div>
                   </div>
-                  <div class="card3d__text" id="textFront" contenteditable="true" data-placeholder="Escreva aqui o que seu coração quer dizer..."></div>
-                  <div class="card3d__stickers" id="stickerLayerFront"></div>
-                  <canvas class="card3d__draw-layer" id="drawLayerFront"></canvas>
+
+                  <!-- VERSO -->
+                  <div class="card3d__face card3d__face--back" id="faceBack">
+                    <div class="card3d__sheen"></div>
+                    <div class="card3d__frame" id="frameBack">
+                      <div class="card3d__text card3d__text--back" id="textBack" contenteditable="true" data-placeholder="P.S. ainda há mais espaço no verso..."></div>
+                      <div class="card3d__stickers" id="stickerLayerBack"></div>
+                      <canvas class="card3d__draw-layer" id="drawLayerBack"></canvas>
+                      <div class="card3d__seal">Romanticwave</div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
 
-              <!-- VERSO -->
-              <div class="card3d__face card3d__face--back" id="faceBack">
-                <div class="card3d__sheen"></div>
-                <div class="card3d__frame" id="frameBack">
-                  <div class="card3d__text card3d__text--back" id="textBack" contenteditable="true" data-placeholder="P.S. ainda há mais espaço no verso..."></div>
-                  <div class="card3d__stickers" id="stickerLayerBack"></div>
-                  <canvas class="card3d__draw-layer" id="drawLayerBack"></canvas>
-                  <div class="card3d__seal">Romanticwave</div>
-                </div>
+              <!-- aba do envelope: fecha por cima, encaixando a carta -->
+              <div class="env3d__flap" id="env3dFlap" title="Toque para selar/abrir">
+                <div class="env3d__seal">✦</div>
               </div>
 
             </div>
           </div>
-          <p class="stage__hint">arraste em qualquer ponto da carta para girá-la livremente em 3D</p>
+          <p class="stage__hint" id="stageHint">arraste em qualquer ponto da carta para girá-la livremente em 3D</p>
         </div>
 
         <!-- ============ PAINEL LATERAL ============ -->
@@ -204,15 +223,6 @@
               <button class="option" data-size="grande">G</button>
             </div>
 
-            <p class="side-panel__label">Envelope 3D</p>
-            <div class="toggle-row">
-              <button class="toggle-pill is-active" id="envelope3dToggle" aria-pressed="true" type="button">Ativado</button>
-              <p class="side-panel__hint">
-                Quando ativado, a carta entra e sai do envelope no próprio palco 3D.
-                Toque no envelope para abrir ou fechar. Quando desativado, a carta fica totalmente exposta.
-              </p>
-            </div>
-
             <p class="side-panel__label">Envelope</p>
             <div class="swatch-row" id="envelopeColors">
               <button class="swatch is-active" style="--sw:#D9C2A6" data-envcolor="#D9C2A6" title="Kraft"></button>
@@ -220,6 +230,10 @@
               <button class="swatch" style="--sw:#D9CFE8" data-envcolor="#D9CFE8" title="Lilás"></button>
               <button class="swatch" style="--sw:#EFEAE3" data-envcolor="#EFEAE3" title="Marfim"></button>
             </div>
+            <p class="side-panel__hint">
+              Ative a opção <strong>Envelope</strong> no topo do palco 3D para ver
+              a carta ganhar o envelope de verdade — e selar quando quiser.
+            </p>
           </section>
 
           <!-- TEXTO -->
@@ -357,44 +371,46 @@
     <div class="viewer__panel">
       <button class="icon-btn icon-btn--ghost viewer__close" id="closeViewerBtn" aria-label="Fechar">✕</button>
 
-      <!-- estado 1: envelope fechado -->
-      <div class="viewer__envelope-stage" id="viewerEnvelopeStage">
-        <div class="envelope envelope--lg" id="viewerEnvelope">
-          <div class="envelope__back"></div>
-          <div class="envelope__letter"></div>
-          <div class="envelope__flap"></div>
-          <div class="envelope__seal">✦</div>
-        </div>
-        <p class="viewer__hint" id="viewerFromHint">toque no envelope para abrir</p>
-      </div>
-
-      <!-- estado 2: carta em 3D (somente leitura) -->
-      <div class="stage stage--viewer" id="viewerStage" hidden>
+      <!-- carta + envelope: um único objeto físico no mesmo palco 3D -->
+      <div class="stage stage--viewer" id="viewerStage">
         <div class="stage__scene" id="viewerScene">
-          <div class="card3d" id="viewerCard3d">
-            <div class="card3d__face card3d__face--front" id="viewerFaceFront">
-              <div class="card3d__sheen"></div>
-              <div class="card3d__frame" id="viewerFrameFront">
-                <div class="card3d__photo" id="viewerPhotoSlot" hidden>
-                  <img id="viewerPhotoImg" alt="Foto da carta">
+          <div class="letter-object" id="viewerLetterObject">
+
+            <div class="env3d__back" id="viewerEnvBack"></div>
+
+            <div class="card-anim" id="viewerCardAnim">
+              <div class="card3d" id="viewerCard3d">
+                <div class="card3d__face card3d__face--front" id="viewerFaceFront">
+                  <div class="card3d__sheen"></div>
+                  <div class="card3d__frame" id="viewerFrameFront">
+                    <div class="card3d__photo" id="viewerPhotoSlot" hidden>
+                      <img id="viewerPhotoImg" alt="Foto da carta">
+                    </div>
+                    <div class="card3d__text" id="viewerTextFront"></div>
+                    <div class="card3d__stickers" id="viewerStickerLayerFront"></div>
+                    <img class="card3d__draw-layer" id="viewerDrawFront" alt="" hidden>
+                  </div>
                 </div>
-                <div class="card3d__text" id="viewerTextFront"></div>
-                <div class="card3d__stickers" id="viewerStickerLayerFront"></div>
-                <img class="card3d__draw-layer" id="viewerDrawFront" alt="" hidden>
+                <div class="card3d__face card3d__face--back" id="viewerFaceBack">
+                  <div class="card3d__sheen"></div>
+                  <div class="card3d__frame" id="viewerFrameBack">
+                    <div class="card3d__text card3d__text--back" id="viewerTextBack"></div>
+                    <div class="card3d__stickers" id="viewerStickerLayerBack"></div>
+                    <img class="card3d__draw-layer" id="viewerDrawBack" alt="" hidden>
+                    <div class="card3d__seal">Romanticwave</div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="card3d__face card3d__face--back" id="viewerFaceBack">
-              <div class="card3d__sheen"></div>
-              <div class="card3d__frame" id="viewerFrameBack">
-                <div class="card3d__text card3d__text--back" id="viewerTextBack"></div>
-                <div class="card3d__stickers" id="viewerStickerLayerBack"></div>
-                <img class="card3d__draw-layer" id="viewerDrawBack" alt="" hidden>
-                <div class="card3d__seal">Romanticwave</div>
-              </div>
+
+            <div class="env3d__flap" id="viewerEnvFlap" title="Toque para abrir/selar">
+              <div class="env3d__seal">✦</div>
             </div>
+
           </div>
         </div>
-        <p class="stage__hint">arraste para girar • <button class="link-btn" id="viewerFlipBtn">virar carta</button></p>
+        <p class="stage__hint" id="viewerHint">toque no envelope para abrir</p>
+        <button class="link-btn viewer__flip-link" id="viewerFlipBtn" hidden>virar carta</button>
       </div>
     </div>
   </div>
