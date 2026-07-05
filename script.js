@@ -94,18 +94,16 @@
     let isFlipping = false;
     let idleRAF = null;
     let destroyed = false;
+    let enabled = true;
 
     function apply(extraX = 0, extraY = 0){
-      const stage = sceneEl.closest('.stage');
-      const envelopeOffset = stage && stage.classList.contains('is-envelope-visible')
-        ? ' translateY(16px) scale(.92)'
-        : '';
-      cardEl.style.transform = `${envelopeOffset} rotateX(${rotX + extraX}deg) rotateY(${rotY + extraY}deg)`;
+      cardEl.style.transform = `rotateX(${rotX + extraX}deg) rotateY(${rotY + extraY}deg)`;
     }
 
     function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
     function onPointerDown(e){
+      if (!enabled) return;
       if (e.target.closest('.sticker')) return; // adesivos cuidam do próprio arraste
       if (pointerId !== null) return; // já existe um ponteiro ativo (evita multitoque)
       pointerId = e.pointerId;
@@ -162,7 +160,7 @@
     // deixando óbvio que é um objeto 3D real mesmo parado.
     function idleLoop(t){
       if (destroyed) return;
-      if (!dragging && !isFlipping){
+      if (!dragging && !isFlipping && enabled){
         const wobY = Math.sin(t / 1700) * 3;
         const wobX = Math.sin(t / 2500) * 1.4;
         apply(wobX, wobY);
@@ -185,7 +183,17 @@
         }, 950);
       },
       reset(x = initialX, y = initialY){
+        isFlipping = true;
+        cardEl.classList.add('is-transitioning');
         rotX = x; rotY = y; apply();
+        setTimeout(() => {
+          cardEl.classList.remove('is-transitioning');
+          isFlipping = false;
+        }, 950);
+      },
+      setEnabled(v){
+        enabled = v;
+        if (!v){ dragging = false; cardEl.classList.remove('is-grabbing'); }
       },
       getFacing(){
         const norm = ((rotY % 360) + 360) % 360;
@@ -217,7 +225,6 @@
   const sendBtn  = document.getElementById('sendBtn');
 
   const stageScene = document.getElementById('stageScene');
-  const stageEnvelope = document.getElementById('stageEnvelope');
   const card3d  = document.getElementById('card3d');
   const frameFront = document.getElementById('frameFront');
   const frameBack  = document.getElementById('frameBack');
@@ -228,8 +235,6 @@
   const photoImg  = document.getElementById('photoImg');
   const photoInput = document.getElementById('photoInput');
   const removePhotoBtn = document.getElementById('removePhotoBtn');
-  const drawFrontCanvas = document.getElementById('drawFront');
-  const drawBackCanvas  = document.getElementById('drawBack');
 
   const stickerLayerFront = document.getElementById('stickerLayerFront');
   const stickerLayerBack  = document.getElementById('stickerLayerBack');
@@ -240,21 +245,20 @@
   const paperColorBtns = document.querySelectorAll('#paperColors .swatch');
   const textureBtns    = document.querySelectorAll('#textures .option');
   const sizeBtns       = document.querySelectorAll('#sizes .option');
-  const paperShapeBtns = document.querySelectorAll('#paperShapes .option');
   const envelopeColorBtns = document.querySelectorAll('#envelopeColors .swatch');
   const fontBtns       = document.querySelectorAll('#fonts .option');
   const textColorBtns  = document.querySelectorAll('#textColors .swatch');
   const fontSizeSlider = document.getElementById('fontSize');
   const alignBtns      = document.querySelectorAll('#aligns .option');
   const styleBtns      = document.querySelectorAll('#styles .style-card');
-  const drawModeBtns   = document.querySelectorAll('#drawModes .option');
-  const drawColorBtns  = document.querySelectorAll('#drawColors .swatch');
-  const brushSizeSlider = document.getElementById('brushSize');
-  const clearDrawingBtn = document.getElementById('clearDrawingBtn');
+  const shapeBtns      = document.querySelectorAll('#shapes .shape-card');
   const stickerPicker  = document.querySelectorAll('#stickerPicker .sticker-btn');
   const envelopePreview = document.getElementById('envelopePreview');
-  const envelopePreviewLabel = document.getElementById('envelopePreviewLabel');
-  const toggleEnvelopeBtn = document.getElementById('toggleEnvelopeBtn');
+  const drawColorBtns  = document.querySelectorAll('#drawColors .swatch');
+  const drawSizeSlider = document.getElementById('drawSize');
+  const clearDrawBtn   = document.getElementById('clearDrawBtn');
+  const drawLayerFront = document.getElementById('drawLayerFront');
+  const drawLayerBack  = document.getElementById('drawLayerBack');
 
   // correio (home)
   const myIdValue  = document.getElementById('myIdValue');
@@ -294,6 +298,8 @@
   const viewerTextBack   = document.getElementById('viewerTextBack');
   const viewerPhotoSlot  = document.getElementById('viewerPhotoSlot');
   const viewerPhotoImg   = document.getElementById('viewerPhotoImg');
+  const viewerDrawFront  = document.getElementById('viewerDrawFront');
+  const viewerDrawBack   = document.getElementById('viewerDrawBack');
   const viewerStickerLayerFront = document.getElementById('viewerStickerLayerFront');
   const viewerStickerLayerBack  = document.getElementById('viewerStickerLayerBack');
   const viewerFlipBtn = document.getElementById('viewerFlipBtn');
@@ -302,29 +308,6 @@
     caveat: "'Caveat', cursive",
     serif:  "'Cormorant Garamond', serif",
     jost:   "'Jost', sans-serif"
-  };
-
-  const PAPER_SHAPE_LABELS = {
-    romance: 'Carta romance',
-    classica: 'Carta clássica',
-    pergaminho: 'Pergaminho',
-    carta: 'Carta fina'
-  };
-
-  const DRAW_STATE = {
-    mode: 'idle',
-    color: '#4A3B3B',
-    size: 7
-  };
-
-  const drawingCanvases = {
-    front: drawFrontCanvas,
-    back: drawBackCanvas
-  };
-
-  const drawingContexts = {
-    front: drawFrontCanvas.getContext('2d'),
-    back: drawBackCanvas.getContext('2d')
   };
 
   /* ---------------------------------------------------------------------
@@ -341,8 +324,7 @@
       paperColor: '#FBF6F0',
       texture: 'liso',
       size: 'media',
-      paperShape: 'romance',
-      showEnvelope: false,
+      shape: 'classico',
       envelopeColor: '#D9C2A6',
       font: 'caveat',
       textColor: '#4A3B3B',
@@ -352,10 +334,10 @@
       textFrontHTML: '',
       textBackHTML: '',
       photo: null,
-      drawingFront: null,
-      drawingBack: null,
       stickersFront: [],
       stickersBack: [],
+      drawFront: null,
+      drawBack: null,
       createdAt: null,
       status: 'rascunho',   // 'rascunho' | 'enviada'
       recipientId: null,
@@ -374,12 +356,16 @@
     if (editorRotator) editorRotator.destroy();
     editorRotator = createRotator(stageScene, card3d);
 
+    // sempre reabre na aba "Papel", com o desenho desativado, para não
+    // herdar um estado de "modo desenho" de uma sessão de edição anterior
+    tabs.forEach(t => t.classList.remove('is-active'));
+    tabPanels.forEach(p => p.classList.remove('is-active'));
+    document.querySelector('.tab[data-tab="papel"]').classList.add('is-active');
+    document.querySelector('.tab-panel[data-panel="papel"]').classList.add('is-active');
+    drawLayerFront.classList.remove('is-drawable');
+    drawLayerBack.classList.remove('is-drawable');
+
     applyLetterToDOM();
-    requestAnimationFrame(() => {
-      resizeDrawingCanvases();
-      restoreDrawingFace('front');
-      restoreDrawingFace('back');
-    });
     editor.classList.add('is-open');
     editor.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
@@ -418,6 +404,14 @@
       tabPanels.forEach(p => p.classList.remove('is-active'));
       tab.classList.add('is-active');
       document.querySelector(`.tab-panel[data-panel="${tab.dataset.tab}"]`).classList.add('is-active');
+
+      const isDrawing = tab.dataset.tab === 'desenhar';
+      drawLayerFront.classList.toggle('is-drawable', isDrawing);
+      drawLayerBack.classList.toggle('is-drawable', isDrawing);
+      if (editorRotator){
+        editorRotator.setEnabled(!isDrawing);
+        if (isDrawing) editorRotator.reset(0, 0); // achata a carta de frente pra desenhar com precisão
+      }
     });
   });
 
@@ -442,29 +436,28 @@
       letter.size = btn.dataset.size;
       setActive(sizeBtns, btn);
       applySize();
+      resizeDrawCanvases(); // a área de desenho precisa se ajustar ao novo tamanho
     });
   });
 
-  paperShapeBtns.forEach(btn => {
+  shapeBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      letter.paperShape = btn.dataset.shape;
-      setActive(paperShapeBtns, btn);
-      applyPaperShape();
+      letter.shape = btn.dataset.shape;
+      setActive(shapeBtns, btn);
+      applyShape();
     });
   });
-
-  if (toggleEnvelopeBtn){
-    toggleEnvelopeBtn.addEventListener('click', () => {
-      letter.showEnvelope = !letter.showEnvelope;
-      applyEnvelopeMode();
-    });
-  }
 
   envelopeColorBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       letter.envelopeColor = btn.dataset.envcolor;
       setActive(envelopeColorBtns, btn);
+      envelopePreview.style.setProperty('--env-color', letter.envelopeColor);
     });
+  });
+
+  envelopePreview.addEventListener('click', () => {
+    envelopePreview.classList.toggle('is-open');
   });
 
   fontBtns.forEach(btn => {
@@ -504,36 +497,6 @@
     });
   });
 
-  drawModeBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      setDrawMode(btn.dataset.drawmode);
-    });
-  });
-
-  drawColorBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      DRAW_STATE.color = btn.dataset.color;
-      setActive(drawColorBtns, btn);
-    });
-  });
-
-  brushSizeSlider.addEventListener('input', () => {
-    DRAW_STATE.size = Number(brushSizeSlider.value);
-  });
-
-  clearDrawingBtn.addEventListener('click', () => {
-    const face = getCurrentFaceKey();
-    clearDrawingFace(face);
-  });
-
-  const resetTextBtn = document.getElementById('resetTextBtn');
-  if (resetTextBtn){
-    resetTextBtn.addEventListener('click', () => {
-      const face = getCurrentFaceKey();
-      clearTextFace(face);
-    });
-  }
-
   function setActive(collection, active){
     collection.forEach(el => el.classList.remove('is-active'));
     active.classList.add('is-active');
@@ -545,19 +508,17 @@
       frame.parentElement.classList.remove('paper--liso','paper--linho','paper--kraft','paper--vintage');
       frame.parentElement.classList.add(`paper--${letter.texture}`);
     });
-    updateEnvelopePreview();
-  }
-
-  function applyPaperShape(){
-    const stage = document.getElementById('stage');
-    stage.classList.remove('paper-shape--romance','paper-shape--classica','paper-shape--pergaminho','paper-shape--carta');
-    stage.classList.add(`paper-shape--${letter.paperShape || 'romance'}`);
   }
 
   function applySize(){
     stageScene.classList.remove('size--pequena','size--grande');
     if (letter.size === 'pequena') stageScene.classList.add('size--pequena');
     if (letter.size === 'grande') stageScene.classList.add('size--grande');
+  }
+
+  function applyShape(){
+    card3d.classList.remove('shape--classico','shape--pergaminho','shape--coracao');
+    card3d.classList.add(`shape--${letter.shape}`);
   }
 
   function applyTextStyle(){
@@ -574,178 +535,6 @@
     document.getElementById('stage').classList.remove('style--romantico','style--classico','style--vintage','style--minimalista');
     document.getElementById('stage').classList.add(`style--${letter.style}`);
   }
-
-  function applyEnvelopeMode(){
-    const stage = document.getElementById('stage');
-    const visible = Boolean(letter.showEnvelope);
-    stage.classList.toggle('is-envelope-visible', visible);
-    if (stageEnvelope) stageEnvelope.setAttribute('aria-hidden', String(!visible));
-    if (toggleEnvelopeBtn){
-      toggleEnvelopeBtn.textContent = visible ? 'Ocultar envelope no editor' : 'Mostrar envelope no editor';
-      toggleEnvelopeBtn.setAttribute('aria-pressed', String(visible));
-      toggleEnvelopeBtn.classList.toggle('is-active', visible);
-    }
-  }
-
-  function getCurrentFaceKey(){
-    if (!editorRotator) return 'front';
-    return editorRotator.getFacing() === 'back' ? 'back' : 'front';
-  }
-
-  function updateEnvelopePreview(){
-    if (!envelopePreview) return;
-    envelopePreview.style.setProperty('--env-color', letter.envelopeColor);
-    const label = {
-      '#D9C2A6': 'Envelope kraft',
-      '#F3D9DA': 'Envelope blush',
-      '#D9CFE8': 'Envelope lilás',
-      '#EFEAE3': 'Envelope marfim'
-    }[letter.envelopeColor] || 'Envelope personalizado';
-    if (envelopePreviewLabel) envelopePreviewLabel.textContent = label;
-  }
-
-  function getCanvasForFace(face){
-    return face === 'back' ? drawBackCanvas : drawFrontCanvas;
-  }
-
-  function getContextForFace(face){
-    return face === 'back' ? drawingContexts.back : drawingContexts.front;
-  }
-
-  function getDrawingProp(face){
-    return face === 'back' ? 'drawingBack' : 'drawingFront';
-  }
-
-  function clearDrawingFace(face){
-    const canvas = getCanvasForFace(face);
-    const ctx = getContextForFace(face);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    letter[getDrawingProp(face)] = null;
-  }
-
-  function clearTextFace(face){
-    if (face === 'back'){
-      textBack.innerHTML = '';
-      letter.textBackHTML = '';
-      textBack.focus();
-    } else {
-      textFront.innerHTML = '';
-      letter.textFrontHTML = '';
-      textFront.focus();
-    }
-  }
-
-  function saveDrawingFace(face){
-    const canvas = getCanvasForFace(face);
-    letter[getDrawingProp(face)] = canvas.toDataURL('image/png');
-  }
-
-  function restoreDrawingFace(face){
-    const canvas = getCanvasForFace(face);
-    const ctx = getContextForFace(face);
-    const dataUrl = letter[getDrawingProp(face)];
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (!dataUrl) return;
-    const img = new Image();
-    img.onload = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    };
-    img.src = dataUrl;
-  }
-
-  function resizeDrawingCanvases(){
-    Object.entries(drawingCanvases).forEach(([face, canvas]) => {
-      const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      const snapshot = letter[getDrawingProp(face)];
-      canvas.width = Math.round(rect.width);
-      canvas.height = Math.round(rect.height);
-
-      const ctx = getContextForFace(face);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (snapshot){
-        const img = new Image();
-        img.onload = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
-        img.src = snapshot;
-      }
-    });
-  }
-
-  function setDrawMode(mode){
-    DRAW_STATE.mode = mode;
-    const stage = document.getElementById('stage');
-    stage.classList.toggle('is-drawing', mode !== 'idle');
-    setActiveByValue(drawModeBtns, 'drawmode', mode);
-  }
-
-  function drawStroke(face, from, to){
-    const ctx = getContextForFace(face);
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = DRAW_STATE.size;
-    ctx.globalCompositeOperation = DRAW_STATE.mode === 'erase' ? 'destination-out' : 'source-over';
-    if (DRAW_STATE.mode !== 'erase'){
-      ctx.strokeStyle = DRAW_STATE.color;
-    }
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(to.x, to.y);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function setupDrawingCanvas(canvas, face){
-    let drawing = false;
-    let last = null;
-
-    function getPos(e){
-      const rect = canvas.getBoundingClientRect();
-      return {
-        x: (e.clientX - rect.left) * (canvas.width / rect.width),
-        y: (e.clientY - rect.top) * (canvas.height / rect.height)
-      };
-    }
-
-    canvas.addEventListener('pointerdown', (e) => {
-      if (DRAW_STATE.mode === 'idle') return;
-      drawing = true;
-      last = getPos(e);
-      canvas.setPointerCapture(e.pointerId);
-      e.preventDefault();
-      e.stopPropagation();
-    });
-
-    canvas.addEventListener('pointermove', (e) => {
-      if (!drawing) return;
-      const pos = getPos(e);
-      drawStroke(face, last, pos);
-      last = pos;
-      e.preventDefault();
-      e.stopPropagation();
-    });
-
-    function end(e){
-      if (!drawing) return;
-      drawing = false;
-      try { canvas.releasePointerCapture(e.pointerId); } catch {}
-      saveDrawingFace(face);
-      e.preventDefault();
-      e.stopPropagation();
-    }
-
-    canvas.addEventListener('pointerup', end);
-    canvas.addEventListener('pointercancel', end);
-  }
-
-  setupDrawingCanvas(drawFrontCanvas, 'front');
-  setupDrawingCanvas(drawBackCanvas, 'back');
 
   /* ---------------------------------------------------------------------
      7. ADESIVOS
@@ -806,6 +595,137 @@
   }
 
   /* ---------------------------------------------------------------------
+     7b. DESENHAR — canvas livre sobre a carta (mouse + toque)
+     ---------------------------------------------------------------------
+     Enquanto a aba "Desenhar" está aberta, a rotação fica travada e a
+     carta se acomoda de frente (ver setEnabled/reset acima), então as
+     coordenadas de tela mapeiam direto para o canvas, sem distorção de
+     perspectiva 3D — essencial para o traço acompanhar o dedo/mouse
+     com precisão.
+  --------------------------------------------------------------------- */
+  let currentDrawColor = '#4A3B3B';
+  let currentDrawSize = 3;
+
+  drawColorBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentDrawColor = btn.dataset.drawcolor;
+      setActive(drawColorBtns, btn);
+    });
+  });
+  drawSizeSlider.addEventListener('input', () => {
+    currentDrawSize = Number(drawSizeSlider.value);
+  });
+
+  function fitCanvas(canvas){
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return;
+    const dpr = window.devicePixelRatio || 1;
+
+    let prevDataURL = null;
+    if (canvas.width > 0 && canvas.height > 0 && canvas.dataset.hasInk === '1'){
+      prevDataURL = canvas.toDataURL();
+    }
+
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (prevDataURL){
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      img.src = prevDataURL;
+    }
+  }
+
+  function resizeDrawCanvases(){
+    fitCanvas(drawLayerFront);
+    fitCanvas(drawLayerBack);
+  }
+
+  function loadDrawingInto(canvas, dataURL){
+    if (!dataURL) return;
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      canvas.dataset.hasInk = '1';
+    };
+    img.src = dataURL;
+  }
+
+  function setupFreehandDrawing(canvas, field){
+    let drawing = false;
+    let lastX = 0, lastY = 0;
+    let pointerId = null;
+
+    function toLocal(e){
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (!canvas.classList.contains('is-drawable')) return;
+      e.stopPropagation();
+      e.preventDefault();
+      drawing = true;
+      pointerId = e.pointerId;
+      canvas.setPointerCapture(pointerId);
+      const p = toLocal(e);
+      lastX = p.x; lastY = p.y;
+      // ponto único (toque sem arrastar) já deixa uma marca
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = currentDrawColor;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, currentDrawSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+      canvas.dataset.hasInk = '1';
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drawing || e.pointerId !== pointerId) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const p = toLocal(e);
+      const ctx = canvas.getContext('2d');
+      ctx.strokeStyle = currentDrawColor;
+      ctx.lineWidth = currentDrawSize;
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      lastX = p.x; lastY = p.y;
+    });
+
+    function endStroke(e){
+      if (!drawing || (e && e.pointerId !== pointerId)) return;
+      drawing = false;
+      try { canvas.releasePointerCapture(pointerId); } catch {}
+      pointerId = null;
+      letter[field] = canvas.toDataURL('image/png');
+    }
+    canvas.addEventListener('pointerup', endStroke);
+    canvas.addEventListener('pointercancel', endStroke);
+  }
+  setupFreehandDrawing(drawLayerFront, 'drawFront');
+  setupFreehandDrawing(drawLayerBack, 'drawBack');
+
+  clearDrawBtn.addEventListener('click', () => {
+    const facing = editorRotator ? editorRotator.getFacing() : 'front';
+    const canvas = facing === 'back' ? drawLayerBack : drawLayerFront;
+    const field = facing === 'back' ? 'drawBack' : 'drawFront';
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    canvas.dataset.hasInk = '0';
+    letter[field] = null;
+  });
+
+  /* ---------------------------------------------------------------------
      8. FOTO
   --------------------------------------------------------------------- */
   photoInput.addEventListener('change', () => {
@@ -841,11 +761,13 @@
     setActiveByValue(paperColorBtns, 'color', letter.paperColor);
     setActiveByValue(textureBtns, 'texture', letter.texture);
     setActiveByValue(sizeBtns, 'size', letter.size);
-    setActiveByValue(paperShapeBtns, 'shape', letter.paperShape || 'romance');
+    setActiveByValue(shapeBtns, 'shape', letter.shape || 'classico');
     setActiveByValue(envelopeColorBtns, 'envcolor', letter.envelopeColor);
     applyPaper();
-    applyPaperShape();
     applySize();
+    applyShape();
+    envelopePreview.classList.remove('is-open');
+    envelopePreview.style.setProperty('--env-color', letter.envelopeColor);
 
     setActiveByValue(fontBtns, 'font', letter.font);
     setActiveByValue(textColorBtns, 'color', letter.textColor);
@@ -855,17 +777,22 @@
 
     setActiveByValue(styleBtns, 'style', letter.style);
     applyStylePreset();
-    applyEnvelopeMode();
 
     textFront.innerHTML = letter.textFrontHTML || '';
     textBack.innerHTML = letter.textBackHTML || '';
 
     applyPhoto();
     renderAllStickers();
-    resizeDrawingCanvases();
-    restoreDrawingFace('front');
-    restoreDrawingFace('back');
-    setDrawMode('idle');
+
+    // reseta e reajusta as camadas de desenho para o tamanho atual da carta,
+    // depois recarrega o traço salvo (se houver) em cada face
+    drawLayerFront.dataset.hasInk = '0';
+    drawLayerBack.dataset.hasInk = '0';
+    resizeDrawCanvases();
+    setTimeout(() => {
+      loadDrawingInto(drawLayerFront, letter.drawFront);
+      loadDrawingInto(drawLayerBack, letter.drawBack);
+    }, 60);
   }
 
   function setActiveByValue(collection, attr, value){
@@ -884,8 +811,6 @@
     const letters = loadLetters();
     letter.textFrontHTML = textFront.innerHTML;
     letter.textBackHTML = textBack.innerHTML;
-    saveDrawingFace('front');
-    saveDrawingFace('back');
 
     if (editingId){
       const idx = letters.findIndex(l => l.id === editingId);
@@ -1074,14 +999,8 @@
       btn.className = 'mail-item';
 
       const envPreview = document.createElement('span');
-      envPreview.className = 'mail-item__env envelope envelope--mini';
-      envPreview.innerHTML = `
-        <span class="envelope__back"></span>
-        <span class="envelope__letter"></span>
-        <span class="envelope__flap"></span>
-        <span class="envelope__seal">✦</span>
-      `;
-      envPreview.style.setProperty('--env-color', entry.letter.envelopeColor || '#D9C2A6');
+      envPreview.className = 'mail-item__env';
+      envPreview.style.background = entry.letter.envelopeColor || '#D9C2A6';
 
       const from = document.createElement('span');
       from.className = 'mail-item__from';
@@ -1145,6 +1064,13 @@
       frame.parentElement.classList.add(`paper--${l.texture}`);
     });
 
+    viewerScene.classList.remove('size--pequena','size--grande');
+    if (l.size === 'pequena') viewerScene.classList.add('size--pequena');
+    if (l.size === 'grande') viewerScene.classList.add('size--grande');
+
+    viewerCard3d.classList.remove('shape--classico','shape--pergaminho','shape--coracao');
+    viewerCard3d.classList.add(`shape--${l.shape || 'classico'}`);
+
     [viewerTextFront, viewerTextBack].forEach(el => {
       el.style.fontFamily = FONT_MAP[l.font];
       el.style.color = l.textColor;
@@ -1162,6 +1088,11 @@
       viewerPhotoImg.src = '';
       viewerPhotoSlot.hidden = true;
     }
+
+    if (l.drawFront){ viewerDrawFront.src = l.drawFront; viewerDrawFront.hidden = false; }
+    else { viewerDrawFront.src = ''; viewerDrawFront.hidden = true; }
+    if (l.drawBack){ viewerDrawBack.src = l.drawBack; viewerDrawBack.hidden = false; }
+    else { viewerDrawBack.src = ''; viewerDrawBack.hidden = true; }
 
     viewerStickerLayerFront.innerHTML = '';
     viewerStickerLayerBack.innerHTML = '';
@@ -1218,13 +1149,6 @@
     currentMailEntry = null;
   }
   closeViewerBtn.addEventListener('click', closeViewer);
-
-  window.addEventListener('resize', () => {
-    if (!editor.classList.contains('is-open')) return;
-    resizeDrawingCanvases();
-    restoreDrawingFace('front');
-    restoreDrawingFace('back');
-  });
 
   /* ---------------------------------------------------------------------
      12. INICIALIZAÇÃO

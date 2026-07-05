@@ -18,6 +18,15 @@
 </head>
 <body>
 
+  <!-- clip-path do formato "coração" — usa objectBoundingBox para escalar com o tamanho da carta -->
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <clipPath id="heartClip" clipPathUnits="objectBoundingBox">
+        <path d="M0.5,0.92 C0.5,0.92 0.04,0.58 0.04,0.32 C0.04,0.12 0.22,0.02 0.5,0.24 C0.78,0.02 0.96,0.12 0.96,0.32 C0.96,0.58 0.5,0.92 0.5,0.92 Z"/>
+      </clipPath>
+    </defs>
+  </svg>
+
   <!-- ======================= BANNER / HEADER ======================= -->
   <header class="topbar">
     <div class="topbar__inner">
@@ -104,14 +113,6 @@
         <!-- ============ PALCO 3D ============ -->
         <div class="stage" id="stage">
           <div class="stage__scene" id="stageScene">
-            <div class="stage-envelope" id="stageEnvelope" aria-hidden="true">
-              <div class="envelope envelope--stage" id="stageEnvelopeInner">
-                <div class="envelope__back"></div>
-                <div class="envelope__letter"></div>
-                <div class="envelope__flap"></div>
-                <div class="envelope__seal">✦</div>
-              </div>
-            </div>
             <div class="card3d" id="card3d">
 
               <!-- FRENTE -->
@@ -121,9 +122,9 @@
                   <div class="card3d__photo" id="photoSlot" hidden>
                     <img id="photoImg" alt="Foto adicionada à carta">
                   </div>
-                  <canvas class="card3d__draw" id="drawFront" aria-label="Área de desenho da frente"></canvas>
                   <div class="card3d__text" id="textFront" contenteditable="true" data-placeholder="Escreva aqui o que seu coração quer dizer..."></div>
                   <div class="card3d__stickers" id="stickerLayerFront"></div>
+                  <canvas class="card3d__draw-layer" id="drawLayerFront"></canvas>
                 </div>
               </div>
 
@@ -131,9 +132,9 @@
               <div class="card3d__face card3d__face--back" id="faceBack">
                 <div class="card3d__sheen"></div>
                 <div class="card3d__frame" id="frameBack">
-                  <canvas class="card3d__draw" id="drawBack" aria-label="Área de desenho do verso"></canvas>
                   <div class="card3d__text card3d__text--back" id="textBack" contenteditable="true" data-placeholder="P.S. ainda há mais espaço no verso..."></div>
                   <div class="card3d__stickers" id="stickerLayerBack"></div>
+                  <canvas class="card3d__draw-layer" id="drawLayerBack"></canvas>
                   <div class="card3d__seal">Romanticwave</div>
                 </div>
               </div>
@@ -149,13 +150,13 @@
           <div class="side-panel__tabs" id="tabs">
             <button class="tab is-active" data-tab="papel">Papel</button>
             <button class="tab" data-tab="texto">Texto</button>
+            <button class="tab" data-tab="desenhar">Desenhar</button>
             <button class="tab" data-tab="estilo">Estilo</button>
-            <button class="tab" data-tab="desenho">Desenho</button>
             <button class="tab" data-tab="adesivos">Adesivos</button>
             <button class="tab" data-tab="foto">Foto</button>
           </div>
 
-          
+          <!-- PAPEL -->
           <section class="tab-panel is-active" data-panel="papel">
             <p class="side-panel__label">Cor do papel</p>
             <div class="swatch-row" id="paperColors">
@@ -175,19 +176,27 @@
               <button class="option" data-texture="vintage">Vintage</button>
             </div>
 
+            <p class="side-panel__label">Formato do papel</p>
+            <div class="shape-grid" id="shapes">
+              <button class="shape-card is-active" data-shape="classico">
+                <span class="shape-card__icon shape-card__icon--classico"></span>
+                Clássico
+              </button>
+              <button class="shape-card" data-shape="pergaminho">
+                <span class="shape-card__icon shape-card__icon--pergaminho"></span>
+                Pergaminho
+              </button>
+              <button class="shape-card" data-shape="coracao">
+                <span class="shape-card__icon shape-card__icon--coracao"></span>
+                Coração
+              </button>
+            </div>
+
             <p class="side-panel__label">Tamanho da carta</p>
             <div class="option-row" id="sizes">
               <button class="option" data-size="pequena">P</button>
               <button class="option is-active" data-size="media">M</button>
               <button class="option" data-size="grande">G</button>
-            </div>
-
-            <p class="side-panel__label">Formato da carta</p>
-            <div class="option-row option-row--wrap" id="paperShapes">
-              <button class="option is-active" data-shape="romance">Romance</button>
-              <button class="option" data-shape="classica">Clássica</button>
-              <button class="option" data-shape="pergaminho">Pergaminho</button>
-              <button class="option" data-shape="carta">Carta fina</button>
             </div>
 
             <p class="side-panel__label">Envelope</p>
@@ -197,21 +206,18 @@
               <button class="swatch" style="--sw:#D9CFE8" data-envcolor="#D9CFE8" title="Lilás"></button>
               <button class="swatch" style="--sw:#EFEAE3" data-envcolor="#EFEAE3" title="Marfim"></button>
             </div>
-
-            <button class="option option--soft option--block" id="toggleEnvelopeBtn" aria-pressed="false">Mostrar envelope no editor</button>
-            <p class="side-panel__hint">Quando ativado, a carta aparece dentro do envelope no palco 3D para você modificar com mais realismo.</p>
-
-            <div class="envelope-preview" aria-label="Prévia do envelope">
-              <div class="envelope envelope--preview" id="envelopePreview">
+            <div class="envelope-preview">
+              <div class="envelope envelope--sm" id="envelopePreview" title="Toque para espiar aberto/fechado">
                 <div class="envelope__back"></div>
                 <div class="envelope__letter"></div>
                 <div class="envelope__flap"></div>
                 <div class="envelope__seal">✦</div>
               </div>
-              <p class="envelope-preview__label" id="envelopePreviewLabel">Envelope kraft</p>
+              <p class="side-panel__hint">é assim que sua carta vai chegar — toque no envelope para espiar</p>
             </div>
           </section>
 
+          <!-- TEXTO -->
           <section class="tab-panel" data-panel="texto">
             <p class="side-panel__label">Fonte</p>
             <div class="option-row option-row--wrap" id="fonts">
@@ -238,11 +244,31 @@
               <button class="option" data-align="center">Centro</button>
               <button class="option" data-align="right">Dir.</button>
             </div>
-
-            <button class="option option--soft option--block" id="resetTextBtn">Resetar escrita da face atual</button>
           </section>
 
-          
+          <!-- DESENHAR -->
+          <section class="tab-panel" data-panel="desenhar">
+            <p class="side-panel__label">Cor do traço</p>
+            <div class="swatch-row" id="drawColors">
+              <button class="swatch is-active" style="--sw:#4A3B3B" data-drawcolor="#4A3B3B" title="Tinta marrom"></button>
+              <button class="swatch" style="--sw:#B08968" data-drawcolor="#B08968" title="Dourado"></button>
+              <button class="swatch" style="--sw:#C99B9B" data-drawcolor="#C99B9B" title="Rosa poeira"></button>
+              <button class="swatch" style="--sw:#7A2E3B" data-drawcolor="#7A2E3B" title="Vinho"></button>
+              <button class="swatch" style="--sw:#2E2E2E" data-drawcolor="#2E2E2E" title="Preto"></button>
+            </div>
+
+            <p class="side-panel__label">Espessura do traço</p>
+            <input type="range" id="drawSize" min="1" max="10" value="3" class="slider">
+
+            <p class="side-panel__label">&nbsp;</p>
+            <button class="option option--danger" id="clearDrawBtn">Apagar desenho desta face</button>
+
+            <p class="side-panel__hint">
+              Com esta aba aberta, a carta fica de frente para você — arraste sobre
+              ela para desenhar. Toque em "Virar" no topo para desenhar no verso.
+            </p>
+          </section>
+
           <!-- ESTILO -->
           <section class="tab-panel" data-panel="estilo">
             <p class="side-panel__label">Estilo geral</p>
@@ -266,32 +292,7 @@
             </div>
           </section>
 
-          <!-- DESENHO -->
-          <section class="tab-panel" data-panel="desenho">
-            <p class="side-panel__label">Modo</p>
-            <div class="option-row" id="drawModes">
-              <button class="option is-active" data-drawmode="idle">Escrever</button>
-              <button class="option" data-drawmode="paint">Pincel</button>
-              <button class="option" data-drawmode="erase">Borracha</button>
-            </div>
-
-            <p class="side-panel__label">Cor do traço</p>
-            <div class="swatch-row" id="drawColors">
-              <button class="swatch is-active" style="--sw:#4A3B3B" data-color="#4A3B3B" title="Marrom tinta"></button>
-              <button class="swatch" style="--sw:#8C6A6A" data-color="#8C6A6A" title="Mauve"></button>
-              <button class="swatch" style="--sw:#7A5B75" data-color="#7A5B75" title="Ameixa"></button>
-              <button class="swatch" style="--sw:#B08968" data-color="#B08968" title="Dourado suave"></button>
-            </div>
-
-            <p class="side-panel__label">Espessura</p>
-            <input type="range" id="brushSize" min="2" max="22" value="7" class="slider">
-
-            <button class="option option--danger" id="clearDrawingBtn">Limpar desenho da face atual</button>
-            <p class="side-panel__hint">Ative o modo de desenho e arraste sobre a carta. O traço fica salvo separadamente na frente e no verso.</p>
-          </section>
-
           <!-- ADESIVOS -->
-
           <section class="tab-panel" data-panel="adesivos">
             <p class="side-panel__label">Toque para adicionar à carta</p>
             <div class="sticker-grid" id="stickerPicker">
@@ -374,6 +375,7 @@
                 </div>
                 <div class="card3d__text" id="viewerTextFront"></div>
                 <div class="card3d__stickers" id="viewerStickerLayerFront"></div>
+                <img class="card3d__draw-layer" id="viewerDrawFront" alt="" hidden>
               </div>
             </div>
             <div class="card3d__face card3d__face--back" id="viewerFaceBack">
@@ -381,6 +383,7 @@
               <div class="card3d__frame" id="viewerFrameBack">
                 <div class="card3d__text card3d__text--back" id="viewerTextBack"></div>
                 <div class="card3d__stickers" id="viewerStickerLayerBack"></div>
+                <img class="card3d__draw-layer" id="viewerDrawBack" alt="" hidden>
                 <div class="card3d__seal">Romanticwave</div>
               </div>
             </div>

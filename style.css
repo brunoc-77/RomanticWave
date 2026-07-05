@@ -214,21 +214,6 @@ input{ font-family: inherit; }
   position: relative;
   overflow: hidden;
 }
-.mail-item__env .envelope__seal{
-  width: 22px;
-  height: 22px;
-  font-size: .72rem;
-  top: 40%;
-}
-.mail-item__env .envelope__letter{
-  left: 9%;
-  right: 9%;
-  bottom: -8%;
-  height: 82%;
-}
-.mail-item__env .envelope__flap{
-  height: 62%;
-}
 .mail-item__from{ font-size: .78rem; color: var(--mauve); }
 .mail-item__date{ font-size: .72rem; color: var(--ink-soft); }
 .mail-item__unread{
@@ -460,34 +445,6 @@ input{ font-family: inherit; }
   -webkit-user-select: none;
   user-select: none;
 }
-.stage-envelope{
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  opacity: 0;
-  transform: translateY(18px) scale(.98);
-  transition: opacity .45s var(--ease), transform .45s var(--ease);
-  pointer-events: none;
-  z-index: 5;
-}
-.stage.is-envelope-visible .stage-envelope{
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-.stage-envelope .envelope{
-  width: min(86%, 320px);
-  filter: drop-shadow(0 18px 28px rgba(0,0,0,.18));
-}
-.stage-envelope .envelope__letter{
-  bottom: -7%;
-  height: 80%;
-}
-.stage-envelope .envelope__seal{
-  width: 38px;
-  height: 38px;
-  top: 40%;
-}
 .stage__scene::after{
   content: '';
   position: absolute;
@@ -511,11 +468,6 @@ input{ font-family: inherit; }
   transform: rotateX(10deg) rotateY(-22deg);
   -webkit-touch-callout: none;
   touch-action: none;
-  z-index: 3;
-}
-.stage.is-envelope-visible .card3d{
-  filter: saturate(.95) brightness(.99);
-  opacity: .94;
 }
 .card3d.is-grabbing{ cursor: grabbing; }
 .card3d.is-transitioning{ transition: transform .9s var(--ease); }
@@ -539,6 +491,29 @@ input{ font-family: inherit; }
   background: #E3D3C9;
   transform: translate3d(10px, 16px, -28px);
 }
+
+/* ---- formatos de papel: além do retângulo clássico, oferecemos
+   um pergaminho de borda irregular e um coração — para fugir da
+   "cara de folha A4" e parecer mesmo uma carta de amor. ---- */
+.card3d.shape--pergaminho .card3d__face,
+.card3d.shape--pergaminho::before,
+.card3d.shape--pergaminho::after{
+  border-radius: 6px;
+  clip-path: polygon(
+    2% 3%, 10% 0%, 20% 2%, 32% 0%, 44% 2%, 56% 0%, 68% 2%, 80% 0%, 90% 2%, 98% 0%,
+    100% 10%, 98% 22%, 100% 34%, 98% 46%, 100% 58%, 98% 70%, 100% 82%, 98% 94%, 100% 100%,
+    90% 98%, 80% 100%, 68% 98%, 56% 100%, 44% 98%, 32% 100%, 20% 98%, 10% 100%, 2% 98%, 0% 100%,
+    2% 90%, 0% 78%, 2% 66%, 0% 54%, 2% 42%, 0% 30%, 2% 18%, 0% 8%
+  );
+}
+.card3d.shape--coracao .card3d__face,
+.card3d.shape--coracao::before,
+.card3d.shape--coracao::after{
+  border-radius: 0;
+  clip-path: url(#heartClip);
+}
+/* no coração, encolhe a área de texto para caber na parte "cheia" da forma */
+.card3d.shape--coracao .card3d__frame{ padding: 22% 16% 12%; }
 
 .card3d__face{
   position: absolute;
@@ -585,15 +560,6 @@ input{ font-family: inherit; }
   user-select: none;
 }
 
-.card3d__draw{
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  pointer-events: none;
-}
-
 .card3d__text{
   flex: 1;
   font-family: var(--font-hand);
@@ -605,8 +571,6 @@ input{ font-family: inherit; }
   white-space: pre-wrap;
   text-align: left;
   touch-action: none; /* girar tem prioridade sobre rolar o texto no mobile */
-  position: relative;
-  z-index: 3;
 }
 .card3d__text:empty::before{
   content: attr(data-placeholder);
@@ -614,14 +578,6 @@ input{ font-family: inherit; }
 }
 .card3d__text--back{ font-size: 18px; }
 .card3d__text[contenteditable="false"]{ cursor: inherit; }
-
-.stage.is-drawing .card3d__draw{
-  pointer-events: auto;
-  z-index: 6;
-}
-.stage.is-drawing .card3d__text{
-  pointer-events: none;
-}
 
 .card3d__seal{
   align-self: flex-end;
@@ -669,9 +625,6 @@ input{ font-family: inherit; }
   letter-spacing: .03em;
   text-align: center;
 }
-.stage.is-envelope-visible .stage__hint{
-  color: rgba(255, 240, 235, .72);
-}
 .stage--viewer{
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
@@ -679,34 +632,6 @@ input{ font-family: inherit; }
 /* tamanhos da carta */
 .stage__scene.size--pequena{ max-width: 300px; }
 .stage__scene.size--grande{ max-width: 440px; }
-
-.paper-shape--romance .card3d__face,
-.paper-shape--romance .card3d__frame,
-.paper-shape--romance .card3d__draw{
-  border-radius: 30px 30px 42px 42px;
-}
-.paper-shape--romance .card3d__face{
-  box-shadow:
-    0 2px 4px rgba(74,59,59,.08),
-    0 22px 52px rgba(74,59,59,.28),
-    0 2px 0 rgba(255,255,255,.65) inset;
-}
-.paper-shape--classica .card3d__face,
-.paper-shape--classica .card3d__frame,
-.paper-shape--classica .card3d__draw{
-  border-radius: 22px;
-}
-.paper-shape--pergaminho .card3d__face,
-.paper-shape--pergaminho .card3d__frame,
-.paper-shape--pergaminho .card3d__draw{
-  border-radius: 18px 40px 20px 36px;
-}
-.paper-shape--carta .card3d__face,
-.paper-shape--carta .card3d__frame,
-.paper-shape--carta .card3d__draw{
-  border-radius: 16px;
-  clip-path: polygon(1.6% 0, 98.4% 0, 100% 2.2%, 100% 97.8%, 98.4% 100%, 1.6% 100%, 0 97.8%, 0 2.2%);
-}
 
 /* presets de estilo aplicados ao texto */
 .style--romantico .card3d__text{ font-family: var(--font-hand); }
@@ -802,12 +727,6 @@ input{ font-family: inherit; }
 .option:hover{ border-color: var(--ink); }
 .option--danger{ margin-top: 10px; color: var(--mauve); border-color: rgba(140,106,106,.25); width: 100%; }
 .option--danger:hover{ background: var(--blush); color: var(--ink); }
-.option--soft{
-  background: rgba(140,106,106,.08);
-  border-color: rgba(140,106,106,.18);
-}
-.option--soft:hover{ background: rgba(243,217,218,.45); }
-.option--block{ width: 100%; justify-content: center; }
 
 .font-caveat{ font-family: var(--font-hand); font-size: 1.05rem; }
 .font-serif{ font-family: var(--font-display); font-style: italic; }
@@ -836,6 +755,45 @@ input{ font-family: inherit; }
 .style-card__swatch--vintage{ background: linear-gradient(135deg, #E7D9D2, #B08968); }
 .style-card__swatch--minimalista{ background: linear-gradient(135deg, #F4F4F2, #cfcfcf); }
 
+/* formato do papel */
+.shape-grid{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.shape-card{
+  border: 1px solid rgba(140,106,106,.2);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: .72rem;
+  color: var(--ink);
+  transition: border-color .25s var(--ease), background .25s var(--ease);
+}
+.shape-card.is-active{ border-color: var(--ink); background: var(--cream-2); }
+.shape-card__icon{
+  width: 32px; height: 40px;
+  background: linear-gradient(160deg, #FEFCFA, #EDE3DA);
+  box-shadow: 0 3px 8px rgba(74,59,59,.18);
+}
+.shape-card__icon--classico{ border-radius: 4px; }
+.shape-card__icon--pergaminho{
+  border-radius: 2px;
+  clip-path: polygon(4% 6%, 24% 0%, 50% 5%, 76% 0%, 96% 6%, 100% 20%, 96% 40%, 100% 60%, 96% 80%, 100% 94%, 76% 100%, 50% 95%, 24% 100%, 4% 94%, 0% 80%, 4% 60%, 0% 40%, 4% 20%);
+}
+.shape-card__icon--coracao{ clip-path: url(#heartClip); }
+
+/* preview miniatura do envelope, ao vivo */
+.envelope-preview{
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.envelope--sm{ width: 150px; cursor: pointer; }
+.envelope-preview .side-panel__hint{ text-align: center; margin-top: 0; }
+
 .sticker-grid{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .sticker-btn{
   border: 1px solid rgba(140,106,106,.2);
@@ -859,28 +817,22 @@ input{ font-family: inherit; }
 }
 .upload-btn:hover{ background: var(--blush); border-color: var(--ink); }
 
-.envelope-preview{
-  margin-top: 18px;
-  padding: 16px 14px 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(140,106,106,.14);
-  background: linear-gradient(180deg, rgba(255,255,255,.45), rgba(244,238,230,.92));
-  display: grid;
-  place-items: center;
-  gap: 10px;
-  box-shadow: var(--shadow-soft);
-}
-.envelope--preview{
-  width: 180px;
-}
-.envelope--mini{
+/* camada de desenho sobre a carta — some para gestos até a aba
+   "Desenhar" estar aberta, evitando atrapalhar girar/escrever */
+.card3d__draw-layer{
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
+  pointer-events: none;
+  touch-action: none;
+  object-fit: contain;
 }
-.envelope-preview__label{
-  margin: 0;
-  font-size: .78rem;
-  color: var(--ink-soft);
+.card3d__draw-layer.is-drawable{
+  pointer-events: auto;
+  cursor: crosshair;
 }
+
 
 /* ============================== ENVELOPE (reutilizável) ============================== */
 .envelope{
