@@ -16,6 +16,7 @@
   --ink-soft:   #6E5B5B;
   --gold:       #B08968;
   --white-satin:#FEFCFA;
+  --kraft:      #D9C2A6;
 
   --shadow-soft: 0 10px 30px rgba(140, 106, 106, 0.12);
   --shadow-deep: 0 30px 60px rgba(74, 59, 59, 0.22);
@@ -46,6 +47,7 @@ body{
 }
 
 button{ font-family: inherit; cursor: pointer; }
+input{ font-family: inherit; }
 :focus-visible{ outline: 2px solid var(--gold); outline-offset: 3px; }
 
 @media (prefers-reduced-motion: reduce){
@@ -81,7 +83,9 @@ button{ font-family: inherit; cursor: pointer; }
 }
 .brand__mark{ color: var(--gold); font-size: 1.1rem; }
 
-.btn-add{
+.topbar__actions{ display: flex; align-items: center; gap: 10px; }
+
+.btn-add, .btn-menu{
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -99,179 +103,223 @@ button{ font-family: inherit; cursor: pointer; }
   background: var(--blush);
   box-shadow: var(--shadow-deep);
 }
+.btn-menu{ flex-direction: column; gap: 4px; }
+.btn-menu span{
+  display: block;
+  width: 16px;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 2px;
+  transition: transform .3s var(--ease), opacity .3s var(--ease);
+}
+.btn-menu:hover{ background: var(--blush); transform: translateY(-2px); box-shadow: var(--shadow-deep); }
+.btn-menu:hover span:nth-child(1){ transform: translateX(1px); }
+.btn-menu:hover span:nth-child(3){ transform: translateX(-1px); }
 
-/* ============================== HOME ============================== */
+/* ============================== HOME · CORREIO ============================== */
 .home{ max-width: 1180px; margin: 0 auto; padding: 0 32px 80px; }
 
-.hero{
-  padding: 88px 0 64px;
-  display: grid;
-  grid-template-columns: 1fr 220px;
-  align-items: center;
-  gap: 40px;
-}
-.hero__eyebrow{
-  text-transform: uppercase;
-  letter-spacing: .22em;
-  font-size: .72rem;
-  color: var(--mauve);
-  margin: 0 0 18px;
-}
-.hero__title{
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: clamp(2.2rem, 4.6vw, 3.2rem);
-  line-height: 1.14;
-  margin: 0 0 20px;
-  color: var(--ink);
-  max-width: 11ch;
-}
-.hero__subtitle{
-  font-size: 1rem;
-  line-height: 1.7;
-  color: var(--ink-soft);
-  margin: 0 0 32px;
-  max-width: 440px;
-}
-.hero__cta-row{
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  flex-wrap: wrap;
-}
-.hero__cta-note{
-  font-size: .78rem;
-  color: var(--mauve);
-  font-style: italic;
-  font-family: var(--font-display);
-}
-.btn-primary{
-  border: none;
-  padding: 15px 34px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--ink) 0%, var(--mauve) 100%);
-  color: var(--white-satin);
-  font-size: .95rem;
-  letter-spacing: .02em;
-  box-shadow: var(--shadow-soft);
-  transition: transform .35s var(--ease), box-shadow .35s var(--ease);
-}
-.btn-primary:hover{ transform: translateY(-3px); box-shadow: var(--shadow-deep); }
-
-/* ---- carta decorativa da hero (puro CSS, ecoa o editor 3D) ---- */
-.hero__art{
-  position: relative;
-  height: 230px;
-  perspective: 900px;
-}
-.hero__mini-card{
-  position: absolute;
-  inset: 0;
-  border-radius: 14px;
-  background: var(--white-satin);
-  box-shadow: var(--shadow-deep);
-  transform: rotateX(8deg) rotateY(-18deg) rotate(-4deg);
-  padding: 22px 20px;
-  border: 1px solid rgba(255,255,255,.6);
-}
-.hero__mini-card--back{
-  z-index: -1;
-  background: var(--blush);
-  transform: rotateX(8deg) rotateY(-18deg) rotate(2deg) translate(14px, 18px);
-  opacity: .85;
-}
-.hero__mini-line{
-  display: block;
-  height: 2px;
-  border-radius: 2px;
-  background: rgba(74,59,59,.16);
-  margin-bottom: 14px;
-  width: 100%;
-}
-.hero__mini-line--short{ width: 60%; }
-.hero__mini-heart{
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  color: var(--gold);
-  font-size: 1.3rem;
-}
-
-@media (max-width: 760px){
-  .hero{ grid-template-columns: 1fr; text-align: left; padding-top: 56px; }
-  .hero__art{ display: none; }
-  .hero__title{ max-width: none; }
-}
-
-/* ============================== GALLERY ============================== */
-.gallery{ padding-top: 20px; }
-.gallery__head{
+.correio{ padding-top: 56px; }
+.correio__head{
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 22px;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 34px;
 }
-.gallery__head h2{
+.correio__title{
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: 1.5rem;
+  font-size: clamp(2rem, 4vw, 2.7rem);
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+.correio__subtitle{
   margin: 0;
+  color: var(--ink-soft);
+  font-size: .92rem;
 }
-.gallery__count{ font-size: .8rem; color: var(--mauve); }
 
-.gallery__grid{
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 22px;
+.myid-badge{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--white-satin);
+  border: 1px solid rgba(140,106,106,.18);
+  border-radius: 999px;
+  padding: 8px 8px 8px 18px;
+  box-shadow: var(--shadow-soft);
 }
-.gallery__empty{
+.myid-badge__label{
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--mauve);
+}
+.myid-badge__value{
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.02rem;
+  letter-spacing: .03em;
+  color: var(--ink);
+}
+.myid-badge__copy{
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--cream-2);
+  color: var(--ink);
+  font-size: .9rem;
+  transition: background .25s var(--ease), transform .25s var(--ease);
+}
+.myid-badge__copy:hover{ background: var(--blush); transform: scale(1.06); }
+
+.correio__grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 24px;
+}
+.correio__empty{
   grid-column: 1 / -1;
   text-align: center;
-  padding: 60px 20px;
+  padding: 70px 20px;
   border: 1.5px dashed rgba(140,106,106,.3);
   border-radius: var(--radius-lg);
   color: var(--ink-soft);
   font-size: .95rem;
+  line-height: 1.7;
 }
-.mini-card{
+
+/* item de envelope recebido, na grade do correio */
+.mail-item{
   position: relative;
+  border: none;
+  background: var(--white-satin);
   border-radius: var(--radius-md);
-  padding: 22px 18px;
-  min-height: 150px;
+  padding: 22px 18px 18px;
+  box-shadow: var(--shadow-soft);
+  text-align: left;
+  transition: transform .3s var(--ease), box-shadow .3s var(--ease);
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  align-items: flex-start;
-  box-shadow: var(--shadow-soft);
-  border: 1px solid rgba(140, 106, 106, .14);
-  transition: transform .3s var(--ease), box-shadow .3s var(--ease);
+  gap: 10px;
+}
+.mail-item:hover{ transform: translateY(-4px); box-shadow: var(--shadow-deep); }
+.mail-item__env{
+  width: 100%;
+  aspect-ratio: 16/10;
+  border-radius: 8px;
+  position: relative;
   overflow: hidden;
 }
-.mini-card::before{
-  /* dobra sutil no canto, reforça a metáfora de papel mesmo em miniatura */
-  content: '';
+.mail-item__from{ font-size: .78rem; color: var(--mauve); }
+.mail-item__date{ font-size: .72rem; color: var(--ink-soft); }
+.mail-item__unread{
+  position: absolute;
+  top: 14px; right: 14px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px rgba(176,137,104,.2);
+}
+
+/* ============================== DRAWER · MINHAS CARTAS ============================== */
+.drawer{
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+}
+.drawer__scrim{
+  position: absolute;
+  inset: 0;
+  background: rgba(74,59,59,.32);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity .4s var(--ease);
+}
+.drawer__panel{
   position: absolute;
   top: 0; right: 0;
-  width: 0; height: 0;
-  border-style: solid;
-  border-width: 0 22px 22px 0;
-  border-color: transparent rgba(74,59,59,.08) transparent transparent;
+  height: 100%;
+  width: min(400px, 88vw);
+  background: var(--cream-2);
+  box-shadow: -20px 0 50px rgba(74,59,59,.25);
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transform: translateX(100%);
+  transition: transform .45s var(--ease);
+  overflow-y: auto;
 }
-.mini-card:hover{ transform: translateY(-4px) rotate(-.5deg); box-shadow: var(--shadow-deep); }
-.mini-card__preview{
-  font-family: var(--font-hand);
-  font-size: 1.15rem;
-  line-height: 1.3;
-  max-height: 3.4em;
-  overflow: hidden;
+.drawer.is-open{ pointer-events: auto; }
+.drawer.is-open .drawer__scrim{ opacity: 1; }
+.drawer.is-open .drawer__panel{ transform: translateX(0); }
+
+.drawer__head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.drawer__head h2{
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.4rem;
+  margin: 0;
+}
+
+.btn-primary--block{ width: 100%; }
+
+.drawer__list{ display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.drawer__empty{
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--ink-soft);
+  font-size: .88rem;
+  border: 1.5px dashed rgba(140,106,106,.28);
+  border-radius: var(--radius-md);
+}
+
+.my-letter-item{
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--white-satin);
+  border: 1px solid rgba(140,106,106,.14);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  text-align: left;
+  transition: transform .25s var(--ease), box-shadow .25s var(--ease);
+}
+.my-letter-item:hover{ transform: translateX(-3px); box-shadow: var(--shadow-soft); }
+.my-letter-item__swatch{
+  width: 34px; height: 44px;
+  border-radius: 4px;
+  flex: none;
+  box-shadow: 0 3px 8px rgba(74,59,59,.18);
+}
+.my-letter-item__body{ flex: 1; min-width: 0; }
+.my-letter-item__preview{
+  font-size: .84rem;
   color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.mini-card__date{
-  margin-top: 10px;
-  font-size: .7rem;
-  color: var(--mauve);
-  letter-spacing: .04em;
+.my-letter-item__meta{ font-size: .7rem; color: var(--mauve); margin-top: 2px; }
+.status-tag{
+  font-size: .64rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  flex: none;
 }
+.status-tag--rascunho{ background: rgba(140,106,106,.14); color: var(--ink-soft); }
+.status-tag--enviada{ background: rgba(176,137,104,.18); color: var(--gold); }
 
 /* ============================== EDITOR OVERLAY ============================== */
 .editor{
@@ -310,6 +358,8 @@ button{ font-family: inherit; cursor: pointer; }
   padding: 18px 26px;
   border-bottom: 1px solid rgba(140,106,106,.15);
   background: var(--white-satin);
+  flex-wrap: wrap;
+  gap: 10px;
 }
 .editor__title{
   font-family: var(--font-display);
@@ -322,7 +372,7 @@ button{ font-family: inherit; cursor: pointer; }
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--gold);
 }
-.editor__actions{ display: flex; gap: 10px; }
+.editor__actions{ display: flex; gap: 8px; flex-wrap: wrap; }
 
 .icon-btn{
   border: 1px solid rgba(140,106,106,.25);
@@ -342,6 +392,16 @@ button{ font-family: inherit; cursor: pointer; }
 .icon-btn--ghost{ border-color: transparent; }
 .icon-btn--ghost:hover{ background: rgba(140,106,106,.12); }
 .icon-btn__glyph{ font-size: .9rem; }
+
+.link-btn{
+  background: none;
+  border: none;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0;
+  font-size: inherit;
+}
 
 .editor__body{
   flex: 1;
@@ -379,6 +439,11 @@ button{ font-family: inherit; cursor: pointer; }
   width: 100%;
   max-width: 380px;
   aspect-ratio: 3 / 4.1;
+  /* essencial para girar com o dedo no celular sem o navegador roubar
+     o gesto para rolar a página ou dar zoom */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .stage__scene::after{
   content: '';
@@ -401,8 +466,10 @@ button{ font-family: inherit; cursor: pointer; }
   transform-style: preserve-3d;
   cursor: grab;
   transform: rotateX(10deg) rotateY(-22deg);
+  -webkit-touch-callout: none;
+  touch-action: none;
 }
-.card3d:active{ cursor: grabbing; }
+.card3d.is-grabbing{ cursor: grabbing; }
 .card3d.is-transitioning{ transition: transform .9s var(--ease); }
 
 /* Folhas empilhadas atrás da carta: vendem a ilusão de papel físico
@@ -464,7 +531,11 @@ button{ font-family: inherit; cursor: pointer; }
   margin-bottom: 16px;
   box-shadow: 0 6px 16px rgba(74,59,59,.18);
 }
-.card3d__photo img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+.card3d__photo img{
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  -webkit-user-drag: none;
+  user-select: none;
+}
 
 .card3d__text{
   flex: 1;
@@ -476,12 +547,14 @@ button{ font-family: inherit; cursor: pointer; }
   overflow-y: auto;
   white-space: pre-wrap;
   text-align: left;
+  touch-action: none; /* girar tem prioridade sobre rolar o texto no mobile */
 }
 .card3d__text:empty::before{
   content: attr(data-placeholder);
   color: rgba(74,59,59,.35);
 }
 .card3d__text--back{ font-size: 18px; }
+.card3d__text[contenteditable="false"]{ cursor: inherit; }
 
 .card3d__seal{
   align-self: flex-end;
@@ -502,17 +575,17 @@ button{ font-family: inherit; cursor: pointer; }
   cursor: grab;
   filter: drop-shadow(0 3px 4px rgba(74,59,59,.25));
   user-select: none;
+  touch-action: none;
 }
 .sticker:active{ cursor: grabbing; }
 
-/* paper textures (pure CSS, no images) */
+/* texturas de papel (puro CSS, sem imagens) */
 .paper--liso{}
 .paper--linho{
   background-image: repeating-linear-gradient(45deg, rgba(140,106,106,.05) 0 1px, transparent 1px 6px);
 }
 .paper--kraft{
-  background-image:
-    radial-gradient(rgba(140,106,106,.08) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(140,106,106,.08) 1px, transparent 1px);
   background-size: 6px 6px;
 }
 .paper--vintage{
@@ -527,14 +600,17 @@ button{ font-family: inherit; cursor: pointer; }
   font-size: .74rem;
   color: rgba(255, 240, 235, .55);
   letter-spacing: .03em;
+  text-align: center;
+}
+.stage--viewer{
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
-/* card sizes */
-.card3d__face.size--pequena{ }
+/* tamanhos da carta */
 .stage__scene.size--pequena{ max-width: 300px; }
 .stage__scene.size--grande{ max-width: 440px; }
 
-/* style presets applied to text */
+/* presets de estilo aplicados ao texto */
 .style--romantico .card3d__text{ font-family: var(--font-hand); }
 .style--classico .card3d__text{ font-family: var(--font-display); font-style: italic; }
 .style--vintage .card3d__text{ font-family: var(--font-display); }
@@ -633,16 +709,9 @@ button{ font-family: inherit; cursor: pointer; }
 .font-serif{ font-family: var(--font-display); font-style: italic; }
 .font-jost{ font-family: var(--font-ui); font-weight: 300; }
 
-.slider{
-  width: 100%;
-  accent-color: var(--mauve);
-}
+.slider{ width: 100%; accent-color: var(--mauve); }
 
-.style-grid{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
+.style-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .style-card{
   border: 1px solid rgba(140,106,106,.2);
   background: transparent;
@@ -663,11 +732,7 @@ button{ font-family: inherit; cursor: pointer; }
 .style-card__swatch--vintage{ background: linear-gradient(135deg, #E7D9D2, #B08968); }
 .style-card__swatch--minimalista{ background: linear-gradient(135deg, #F4F4F2, #cfcfcf); }
 
-.sticker-grid{
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
+.sticker-grid{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .sticker-btn{
   border: 1px solid rgba(140,106,106,.2);
   background: var(--cream-2);
@@ -690,6 +755,218 @@ button{ font-family: inherit; cursor: pointer; }
 }
 .upload-btn:hover{ background: var(--blush); border-color: var(--ink); }
 
+/* ============================== ENVELOPE (reutilizável) ============================== */
+.envelope{
+  position: relative;
+  width: 220px;
+  aspect-ratio: 3/2;
+  --env-color: var(--kraft);
+}
+.envelope--lg{ width: 260px; }
+.envelope__back{
+  position: absolute; inset: 0;
+  background: var(--env-color);
+  border-radius: 10px;
+  box-shadow: var(--shadow-deep);
+}
+.envelope__back::before{
+  /* dobras em V do envelope, feitas só com bordas */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(155deg, rgba(0,0,0,.14) 0%, transparent 40%),
+    linear-gradient(205deg, rgba(0,0,0,.14) 0%, transparent 40%),
+    linear-gradient(0deg, rgba(0,0,0,.08), transparent 55%);
+  border-radius: 10px;
+}
+.envelope__letter{
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -6%;
+  height: 78%;
+  background: var(--white-satin);
+  border-radius: 4px;
+  box-shadow: 0 -4px 14px rgba(0,0,0,.12);
+  transition: transform .7s var(--ease);
+}
+.envelope__flap{
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 60%;
+  background: var(--env-color);
+  filter: brightness(1.08);
+  clip-path: polygon(0 0, 100% 0, 50% 92%);
+  transform-origin: top center;
+  border-radius: 10px 10px 0 0;
+  transition: transform .6s var(--ease);
+  box-shadow: 0 6px 10px rgba(0,0,0,.1);
+}
+.envelope__seal{
+  position: absolute;
+  left: 50%; top: 38%;
+  transform: translate(-50%, -50%);
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--white-satin);
+  display: grid;
+  place-items: center;
+  font-size: .95rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,.25);
+  z-index: 2;
+  transition: transform .4s var(--ease), opacity .4s var(--ease);
+}
+
+/* estado aberto: flap sobe e "abre", carta espia para fora */
+.envelope.is-open .envelope__flap{ transform: rotateX(160deg); }
+.envelope.is-open .envelope__letter{ transform: translateY(-46%); }
+.envelope.is-open .envelope__seal{ opacity: 0; transform: translate(-50%,-50%) scale(.4); }
+
+/* ============================== ANIMAÇÃO DE ENVIO ============================== */
+.send-fx{
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  background: rgba(44, 34, 38, .78);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .4s var(--ease);
+}
+.send-fx.is-active{ opacity: 1; pointer-events: auto; }
+.envelope--fx{ transition: transform .9s var(--ease), opacity .6s var(--ease) .5s; }
+.send-fx.is-flying .envelope--fx{
+  transform: translateY(-140px) scale(.5) rotate(-8deg);
+  opacity: 0;
+}
+.send-fx__msg{
+  color: var(--white-satin);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.05rem;
+  letter-spacing: .02em;
+}
+
+/* ============================== MODAL: ENVIAR ============================== */
+.modal{
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .35s var(--ease);
+}
+.modal.is-open{ opacity: 1; pointer-events: auto; }
+.modal__scrim{
+  position: absolute; inset: 0;
+  background: rgba(74,59,59,.4);
+  backdrop-filter: blur(4px);
+}
+.modal__panel{
+  position: relative;
+  width: min(380px, 90vw);
+  background: var(--white-satin);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-deep);
+  padding: 28px 26px;
+  transform: translateY(16px) scale(.97);
+  transition: transform .4s var(--ease);
+}
+.modal.is-open .modal__panel{ transform: translateY(0) scale(1); }
+.modal__title{
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  margin: 0 0 8px;
+}
+.modal__text{ font-size: .88rem; color: var(--ink-soft); margin: 0 0 16px; }
+.modal__input{
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(140,106,106,.3);
+  background: var(--cream-2);
+  font-size: 1rem;
+  letter-spacing: .04em;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+.modal__input:focus{ outline: 2px solid var(--gold); outline-offset: 1px; }
+.modal__hint{ font-size: .74rem; color: var(--mauve); margin: 0 0 20px; line-height: 1.5; }
+.modal__actions{ display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ============================== VISUALIZADOR DE CARTA RECEBIDA ============================== */
+.viewer{
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  background: rgba(44, 34, 38, .55);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .4s var(--ease);
+}
+.viewer.is-open{ opacity: 1; pointer-events: auto; }
+.viewer__panel{
+  position: relative;
+  width: min(520px, 94vw);
+  height: min(700px, 90vh);
+  background: var(--cream-2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-deep);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.viewer__close{
+  position: absolute;
+  top: 14px; right: 14px;
+  z-index: 5;
+  background: rgba(255,255,255,.85);
+}
+.viewer__envelope-stage{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  cursor: pointer;
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 38%, rgba(255,234,225,.16), transparent 70%),
+    linear-gradient(165deg, #362A2C 0%, #2C2226 55%, #241B1D 100%);
+}
+.viewer__hint{ color: rgba(255,240,235,.6); font-size: .82rem; letter-spacing: .02em; }
+
+/* ============================== TOAST ============================== */
+.toast{
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 20px);
+  background: var(--ink);
+  color: var(--white-satin);
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-size: .85rem;
+  box-shadow: var(--shadow-deep);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .4s var(--ease), opacity .4s var(--ease);
+  z-index: 200;
+}
+.toast.is-visible{ opacity: 1; transform: translate(-50%, 0); }
+
 /* ============================== RESPONSIVE ============================== */
 @media (max-width: 880px){
   .editor__body{ grid-template-columns: 1fr; grid-template-rows: 1fr auto; overflow-y: auto; }
@@ -699,8 +976,10 @@ button{ font-family: inherit; cursor: pointer; }
 @media (max-width: 560px){
   .topbar__inner{ padding: 14px 18px; }
   .home{ padding: 0 18px 60px; }
-  .hero{ padding: 60px 0 40px; }
+  .correio{ padding-top: 36px; }
   .editor__panel{ width: 100vw; height: 100vh; border-radius: 0; }
-  .editor__topbar{ padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
+  .editor__topbar{ padding: 14px 16px; }
   .icon-btn{ padding: 8px 12px; }
+  .drawer__panel{ width: 100vw; }
+  .viewer__panel{ width: 100vw; height: 100vh; border-radius: 0; }
 }

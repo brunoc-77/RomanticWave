@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Romanticwave — Cartas que carregam sentimento</title>
+<title>Romanticwave — Correio de cartas românticas</title>
 
 <!--
-  Tipografia: usamos Google Fonts apenas para melhorar a leitura tipográfica.
-  Se quiser um projeto 100% offline, baixe as fontes e troque o <link> por
-  @font-face local em style.css — o resto do projeto continua HTML/CSS/JS puro.
+  Tipografia via Google Fonts apenas para melhorar a leitura tipográfica.
+  Para um projeto 100% offline, troque o <link> por @font-face local —
+  o resto do projeto continua HTML/CSS/JS puro, sem frameworks.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,63 +26,69 @@
         Romanticwave
       </span>
 
-      <button class="btn-add" id="openEditorBtn" aria-label="Criar nova carta" title="Criar nova carta">
-        <span class="btn-add__plus">+</span>
-      </button>
+      <div class="topbar__actions">
+        <button class="btn-add" id="openEditorBtn" aria-label="Criar nova carta" title="Criar nova carta">
+          <span class="btn-add__plus">+</span>
+        </button>
+        <button class="btn-menu" id="openDrawerBtn" aria-label="Minhas cartas" title="Minhas cartas">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
     </div>
   </header>
 
-  <!-- ======================= HOME ======================= -->
+  <!-- ======================= HOME · CORREIO ======================= -->
   <main class="home">
-    <section class="hero">
-      <div class="hero__copy">
-        <p class="hero__eyebrow">uma onda de carinho, escrita à mão</p>
-        <h1 class="hero__title">Palavras que se tocam,<br> mesmo à distância.</h1>
-        <p class="hero__subtitle">
-          Crie cartas com aparência real — papel, tinta, textura e um verso guardado
-          só para quem você ama. Gire, escreva, decore.
-        </p>
-        <div class="hero__cta-row">
-          <button class="btn-primary" id="heroCreateBtn">Criar minha carta</button>
-          <span class="hero__cta-note">leva menos de um minuto para começar</span>
+    <section class="correio">
+      <div class="correio__head">
+        <div>
+          <h1 class="correio__title">Correio</h1>
+          <p class="correio__subtitle">cartas que chegaram para você</p>
+        </div>
+
+        <div class="myid-badge" title="Compartilhe este ID para receber cartas">
+          <span class="myid-badge__label">seu ID</span>
+          <span class="myid-badge__value" id="myIdValue">—</span>
+          <button class="myid-badge__copy" id="copyIdBtn" aria-label="Copiar ID">⧉</button>
         </div>
       </div>
 
-      <!-- pequena carta decorativa, só CSS, ecoando o editor 3D real -->
-      <div class="hero__art" aria-hidden="true">
-        <div class="hero__mini-card">
-          <span class="hero__mini-line"></span>
-          <span class="hero__mini-line hero__mini-line--short"></span>
-          <span class="hero__mini-heart">♡</span>
-        </div>
-        <div class="hero__mini-card hero__mini-card--back"></div>
-      </div>
-    </section>
-
-    <section class="gallery" id="gallery">
-      <div class="gallery__head">
-        <h2>Suas cartas</h2>
-        <span class="gallery__count" id="galleryCount">0 salvas</span>
-      </div>
-      <div class="gallery__grid" id="galleryGrid">
-        <!-- estado vazio / cartas salvas são renderizadas via script.js -->
+      <div class="correio__grid" id="inboxGrid">
+        <!-- envelopes recebidos são renderizados via script.js -->
       </div>
     </section>
   </main>
+
+  <!-- ======================= MINHAS CARTAS (drawer) ======================= -->
+  <div class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer__scrim" id="drawerScrim"></div>
+    <div class="drawer__panel">
+      <div class="drawer__head">
+        <h2>Minhas cartas</h2>
+        <button class="icon-btn icon-btn--ghost" id="closeDrawerBtn" aria-label="Fechar">✕</button>
+      </div>
+      <button class="btn-primary btn-primary--block" id="drawerNewBtn">+ Nova carta</button>
+      <div class="drawer__list" id="myLettersList">
+        <!-- cartas que você criou, renderizadas via script.js -->
+      </div>
+    </div>
+  </div>
 
   <!-- ======================= EDITOR (overlay) ======================= -->
   <div class="editor" id="editor" aria-hidden="true">
     <div class="editor__panel">
 
-      <!-- barra superior do editor -->
       <div class="editor__topbar">
         <div class="editor__title">
           <span class="editor__title-dot"></span>
-          Nova carta
+          <span id="editorTitleText">Nova carta</span>
         </div>
         <div class="editor__actions">
           <button class="icon-btn" id="flipBtn" title="Virar carta">
             <span class="icon-btn__glyph">⟳</span> Virar
+          </button>
+          <button class="icon-btn" id="sendBtn" title="Enviar carta">
+            <span class="icon-btn__glyph">✉</span> Enviar
           </button>
           <button class="icon-btn icon-btn--primary" id="saveBtn" title="Salvar carta">
             <span class="icon-btn__glyph">✓</span> Salvar
@@ -97,7 +103,7 @@
 
         <!-- ============ PALCO 3D ============ -->
         <div class="stage" id="stage">
-          <div class="stage__scene">
+          <div class="stage__scene" id="stageScene">
             <div class="card3d" id="card3d">
 
               <!-- FRENTE -->
@@ -124,7 +130,7 @@
 
             </div>
           </div>
-          <p class="stage__hint">arraste para girar a carta • clique em "Virar" para ver o verso</p>
+          <p class="stage__hint">arraste em qualquer ponto da carta para girá-la livremente em 3D</p>
         </div>
 
         <!-- ============ PAINEL LATERAL ============ -->
@@ -163,6 +169,14 @@
               <button class="option" data-size="pequena">P</button>
               <button class="option is-active" data-size="media">M</button>
               <button class="option" data-size="grande">G</button>
+            </div>
+
+            <p class="side-panel__label">Envelope</p>
+            <div class="swatch-row" id="envelopeColors">
+              <button class="swatch is-active" style="--sw:#D9C2A6" data-envcolor="#D9C2A6" title="Kraft"></button>
+              <button class="swatch" style="--sw:#F3D9DA" data-envcolor="#F3D9DA" title="Blush"></button>
+              <button class="swatch" style="--sw:#D9CFE8" data-envcolor="#D9CFE8" title="Lilás"></button>
+              <button class="swatch" style="--sw:#EFEAE3" data-envcolor="#EFEAE3" title="Marfim"></button>
             </div>
           </section>
 
@@ -246,6 +260,80 @@
       </div>
     </div>
   </div>
+
+  <!-- ======================= MODAL: ENVIAR CARTA ======================= -->
+  <div class="modal" id="sendModal" aria-hidden="true">
+    <div class="modal__scrim" id="sendModalScrim"></div>
+    <div class="modal__panel">
+      <h3 class="modal__title">Enviar carta</h3>
+      <p class="modal__text">Digite o ID de quem vai receber esta carta.</p>
+      <input type="text" id="recipientIdInput" class="modal__input" placeholder="Ex: RW-7F3K2" autocomplete="off">
+      <p class="modal__hint">Dica: envie para o seu próprio ID (acima, no Correio) para testar a entrega agora mesmo.</p>
+      <div class="modal__actions">
+        <button class="icon-btn" id="cancelSendBtn">Cancelar</button>
+        <button class="icon-btn icon-btn--primary" id="confirmSendBtn">Enviar ✉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= ANIMAÇÃO DE ENVIO ======================= -->
+  <div class="send-fx" id="sendFx" aria-hidden="true">
+    <div class="envelope envelope--fx" id="sendEnvelope">
+      <div class="envelope__back"></div>
+      <div class="envelope__letter"></div>
+      <div class="envelope__flap"></div>
+      <div class="envelope__seal">✦</div>
+    </div>
+    <p class="send-fx__msg" id="sendFxMsg">enviando com carinho…</p>
+  </div>
+
+  <!-- ======================= VISUALIZADOR DE CARTA RECEBIDA ======================= -->
+  <div class="viewer" id="viewer" aria-hidden="true">
+    <div class="viewer__panel">
+      <button class="icon-btn icon-btn--ghost viewer__close" id="closeViewerBtn" aria-label="Fechar">✕</button>
+
+      <!-- estado 1: envelope fechado -->
+      <div class="viewer__envelope-stage" id="viewerEnvelopeStage">
+        <div class="envelope envelope--lg" id="viewerEnvelope">
+          <div class="envelope__back"></div>
+          <div class="envelope__letter"></div>
+          <div class="envelope__flap"></div>
+          <div class="envelope__seal">✦</div>
+        </div>
+        <p class="viewer__hint" id="viewerFromHint">toque no envelope para abrir</p>
+      </div>
+
+      <!-- estado 2: carta em 3D (somente leitura) -->
+      <div class="stage stage--viewer" id="viewerStage" hidden>
+        <div class="stage__scene" id="viewerScene">
+          <div class="card3d" id="viewerCard3d">
+            <div class="card3d__face card3d__face--front" id="viewerFaceFront">
+              <div class="card3d__sheen"></div>
+              <div class="card3d__frame" id="viewerFrameFront">
+                <div class="card3d__photo" id="viewerPhotoSlot" hidden>
+                  <img id="viewerPhotoImg" alt="Foto da carta">
+                </div>
+                <div class="card3d__text" id="viewerTextFront"></div>
+                <div class="card3d__stickers" id="viewerStickerLayerFront"></div>
+              </div>
+            </div>
+            <div class="card3d__face card3d__face--back" id="viewerFaceBack">
+              <div class="card3d__sheen"></div>
+              <div class="card3d__frame" id="viewerFrameBack">
+                <div class="card3d__text card3d__text--back" id="viewerTextBack"></div>
+                <div class="card3d__stickers" id="viewerStickerLayerBack"></div>
+                <div class="card3d__seal">Romanticwave</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="stage__hint">arraste para girar • <button class="link-btn" id="viewerFlipBtn">virar carta</button></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= TOAST ======================= -->
+  <div class="toast" id="toast"></div>
 
   <script src="script.js"></script>
 </body>

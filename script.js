@@ -1,35 +1,219 @@
 /* ==========================================================================
    ROMANTICWAVE — script.js
    JavaScript puro, sem dependências externas.
+
    Organização:
-     1. Referências ao DOM
-     2. Estado da carta em edição
-     3. Abrir / fechar editor
-     4. Rotação 3D (arrastar) + virar frente/verso
-     5. Personalização (papel, textura, tamanho, fonte, cor, alinhamento, estilo)
-     6. Adesivos (adicionar / arrastar / remover)
-     7. Foto (upload / remover)
-     8. Salvar carta + galeria (localStorage)
-     9. Inicialização
+     1. Utilidades gerais (ids, storage, toast)
+     2. Motor de rotação 3D (mouse + toque, livre, sem "chute" de volta)
+     3. Referências ao DOM
+     4. Estado da carta em edição
+     5. Abrir / fechar editor
+     6. Personalização (papel, textura, tamanho, fonte, cor, alinhamento, estilo)
+     7. Adesivos
+     8. Foto
+     9. Salvar carta + "Minhas cartas" (drawer)
+    10. Sistema de envio por ID + Correio (caixa de entrada)
+    11. Visualizador de carta recebida (envelope -> carta 3D somente leitura)
+    12. Inicialização
    ========================================================================== */
 
 (() => {
   'use strict';
 
   /* ---------------------------------------------------------------------
-     1. REFERÊNCIAS AO DOM
+     1. UTILIDADES GERAIS
+  --------------------------------------------------------------------- */
+  const STORAGE = {
+    MY_ID:   'rw_my_id',
+    LETTERS: 'rw_letters',   // cartas que EU criei (rascunho/enviada)
+    MAILBOX: 'rw_mailbox'    // caixas de entrada simuladas, por ID de destinatário
+  };
+
+  function uid(prefix){
+    return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function generateHumanId(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem caracteres ambíguos
+    let code = '';
+    for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return 'RW-' + code;
+  }
+
+  function getMyId(){
+    let id = localStorage.getItem(STORAGE.MY_ID);
+    if (!id){
+      id = generateHumanId();
+      localStorage.setItem(STORAGE.MY_ID, id);
+    }
+    return id;
+  }
+
+  function readJSON(key, fallback){
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+  function writeJSON(key, value){
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  let toastTimer = null;
+  function showToast(msg){
+    const toastEl = document.getElementById('toast');
+    toastEl.textContent = msg;
+    toastEl.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('is-visible'), 2600);
+  }
+
+  function formatDate(ts){
+    return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  /* ---------------------------------------------------------------------
+     2. MOTOR DE ROTAÇÃO 3D — mouse + toque, 100% livre
+     ---------------------------------------------------------------------
+     Ideia central: a carta deve poder ser arrastada de QUALQUER ponto
+     (inclusive sobre o texto), sem resetar de volta ao soltar — exatamente
+     como girar um objeto físico na mão. Para não atrapalhar quem quer
+     apenas tocar para escrever, usamos um limiar de movimento: se o dedo/
+     mouse mover pouco, é um toque normal (foca o texto); se mover além do
+     limiar, viramos rotação e cancelamos qualquer seleção de texto.
+  --------------------------------------------------------------------- */
+  function createRotator(sceneEl, cardEl, { initialX = 10, initialY = -22, clampX = 62 } = {}){
+    let rotX = initialX;
+    let rotY = initialY;
+    let dragging = false;
+    let movedEnough = false;
+    let pointerId = null;
+    let startX = 0, startY = 0, lastX = 0, lastY = 0;
+    let isFlipping = false;
+    let idleRAF = null;
+    let destroyed = false;
+
+    function apply(extraX = 0, extraY = 0){
+      cardEl.style.transform = `rotateX(${rotX + extraX}deg) rotateY(${rotY + extraY}deg)`;
+    }
+
+    function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+    function onPointerDown(e){
+      if (e.target.closest('.sticker')) return; // adesivos cuidam do próprio arraste
+      if (pointerId !== null) return; // já existe um ponteiro ativo (evita multitoque)
+      pointerId = e.pointerId;
+      dragging = true;
+      movedEnough = false;
+      startX = lastX = e.clientX;
+      startY = lastY = e.clientY;
+      cardEl.classList.add('is-grabbing');
+      try { sceneEl.setPointerCapture(pointerId); } catch {}
+    }
+
+    function onPointerMove(e){
+      if (!dragging || e.pointerId !== pointerId) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+
+      if (!movedEnough){
+        const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+        if (dist > 6){
+          movedEnough = true;
+          // começou a girar de verdade: cancela seleção/foco de texto
+          if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+          const sel = window.getSelection && window.getSelection();
+          if (sel) sel.removeAllRanges();
+        }
+      }
+
+      if (movedEnough){
+        e.preventDefault();
+        rotY += dx * 0.4;
+        rotX = clamp(rotX - dy * 0.32, -clampX, clampX);
+        apply();
+      }
+      lastX = e.clientX;
+      lastY = e.clientY;
+    }
+
+    function endDrag(e){
+      if (pointerId === null || (e && e.pointerId !== pointerId)) return;
+      try { sceneEl.releasePointerCapture(pointerId); } catch {}
+      dragging = false;
+      pointerId = null;
+      cardEl.classList.remove('is-grabbing');
+      // sem "chute" de volta: a carta permanece exatamente onde foi solta
+    }
+
+    sceneEl.addEventListener('pointerdown', onPointerDown);
+    sceneEl.addEventListener('pointermove', onPointerMove);
+    sceneEl.addEventListener('pointerup', endDrag);
+    sceneEl.addEventListener('pointercancel', endDrag);
+    sceneEl.addEventListener('lostpointercapture', endDrag);
+
+    // animação viva: pequena oscilação contínua quando ninguém toca a carta,
+    // deixando óbvio que é um objeto 3D real mesmo parado.
+    function idleLoop(t){
+      if (destroyed) return;
+      if (!dragging && !isFlipping){
+        const wobY = Math.sin(t / 1700) * 3;
+        const wobX = Math.sin(t / 2500) * 1.4;
+        apply(wobX, wobY);
+      }
+      idleRAF = requestAnimationFrame(idleLoop);
+    }
+    idleRAF = requestAnimationFrame(idleLoop);
+
+    apply();
+
+    return {
+      flip(){
+        isFlipping = true;
+        cardEl.classList.add('is-transitioning');
+        rotY += 180;
+        apply();
+        setTimeout(() => {
+          cardEl.classList.remove('is-transitioning');
+          isFlipping = false;
+        }, 950);
+      },
+      reset(x = initialX, y = initialY){
+        rotX = x; rotY = y; apply();
+      },
+      getFacing(){
+        const norm = ((rotY % 360) + 360) % 360;
+        return (norm > 90 && norm < 270) ? 'back' : 'front';
+      },
+      destroy(){
+        destroyed = true;
+        if (idleRAF) cancelAnimationFrame(idleRAF);
+        sceneEl.removeEventListener('pointerdown', onPointerDown);
+        sceneEl.removeEventListener('pointermove', onPointerMove);
+        sceneEl.removeEventListener('pointerup', endDrag);
+        sceneEl.removeEventListener('pointercancel', endDrag);
+        sceneEl.removeEventListener('lostpointercapture', endDrag);
+      }
+    };
+  }
+
+  /* ---------------------------------------------------------------------
+     3. REFERÊNCIAS AO DOM
   --------------------------------------------------------------------- */
   const openEditorBtn  = document.getElementById('openEditorBtn');
-  const heroCreateBtn  = document.getElementById('heroCreateBtn');
+  const openDrawerBtn  = document.getElementById('openDrawerBtn');
   const closeEditorBtn = document.getElementById('closeEditorBtn');
   const editor         = document.getElementById('editor');
+  const editorTitleText = document.getElementById('editorTitleText');
 
   const flipBtn  = document.getElementById('flipBtn');
   const saveBtn  = document.getElementById('saveBtn');
+  const sendBtn  = document.getElementById('sendBtn');
 
-  const stage   = document.getElementById('stage');
+  const stageScene = document.getElementById('stageScene');
   const card3d  = document.getElementById('card3d');
-  const stageScene = document.querySelector('.stage__scene');
   const frameFront = document.getElementById('frameFront');
   const frameBack  = document.getElementById('frameBack');
   const textFront  = document.getElementById('textFront');
@@ -49,6 +233,7 @@
   const paperColorBtns = document.querySelectorAll('#paperColors .swatch');
   const textureBtns    = document.querySelectorAll('#textures .option');
   const sizeBtns       = document.querySelectorAll('#sizes .option');
+  const envelopeColorBtns = document.querySelectorAll('#envelopeColors .swatch');
   const fontBtns       = document.querySelectorAll('#fonts .option');
   const textColorBtns  = document.querySelectorAll('#textColors .swatch');
   const fontSizeSlider = document.getElementById('fontSize');
@@ -56,8 +241,47 @@
   const styleBtns      = document.querySelectorAll('#styles .style-card');
   const stickerPicker  = document.querySelectorAll('#stickerPicker .sticker-btn');
 
-  const galleryGrid  = document.getElementById('galleryGrid');
-  const galleryCount = document.getElementById('galleryCount');
+  // correio (home)
+  const myIdValue  = document.getElementById('myIdValue');
+  const copyIdBtn  = document.getElementById('copyIdBtn');
+  const inboxGrid  = document.getElementById('inboxGrid');
+
+  // drawer
+  const drawer = document.getElementById('drawer');
+  const drawerScrim = document.getElementById('drawerScrim');
+  const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+  const drawerNewBtn = document.getElementById('drawerNewBtn');
+  const myLettersList = document.getElementById('myLettersList');
+
+  // modal de envio
+  const sendModal = document.getElementById('sendModal');
+  const sendModalScrim = document.getElementById('sendModalScrim');
+  const recipientIdInput = document.getElementById('recipientIdInput');
+  const cancelSendBtn = document.getElementById('cancelSendBtn');
+  const confirmSendBtn = document.getElementById('confirmSendBtn');
+
+  // animação de envio
+  const sendFx = document.getElementById('sendFx');
+  const sendFxMsg = document.getElementById('sendFxMsg');
+
+  // visualizador
+  const viewer = document.getElementById('viewer');
+  const closeViewerBtn = document.getElementById('closeViewerBtn');
+  const viewerEnvelopeStage = document.getElementById('viewerEnvelopeStage');
+  const viewerEnvelope = document.getElementById('viewerEnvelope');
+  const viewerFromHint = document.getElementById('viewerFromHint');
+  const viewerStage = document.getElementById('viewerStage');
+  const viewerScene = document.getElementById('viewerScene');
+  const viewerCard3d = document.getElementById('viewerCard3d');
+  const viewerFrameFront = document.getElementById('viewerFrameFront');
+  const viewerFrameBack  = document.getElementById('viewerFrameBack');
+  const viewerTextFront  = document.getElementById('viewerTextFront');
+  const viewerTextBack   = document.getElementById('viewerTextBack');
+  const viewerPhotoSlot  = document.getElementById('viewerPhotoSlot');
+  const viewerPhotoImg   = document.getElementById('viewerPhotoImg');
+  const viewerStickerLayerFront = document.getElementById('viewerStickerLayerFront');
+  const viewerStickerLayerBack  = document.getElementById('viewerStickerLayerBack');
+  const viewerFlipBtn = document.getElementById('viewerFlipBtn');
 
   const FONT_MAP = {
     caveat: "'Caveat', cursive",
@@ -66,11 +290,12 @@
   };
 
   /* ---------------------------------------------------------------------
-     2. ESTADO DA CARTA EM EDIÇÃO
+     4. ESTADO DA CARTA EM EDIÇÃO
   --------------------------------------------------------------------- */
   let letter = createBlankLetter();
-  let isFlipped = false;
-  let editingId = null; // se estiver reeditando uma carta salva
+  let editingId = null;
+  let editorRotator = null;
+  let viewerRotator = null;
 
   function createBlankLetter(){
     return {
@@ -78,6 +303,7 @@
       paperColor: '#FBF6F0',
       texture: 'liso',
       size: 'media',
+      envelopeColor: '#D9C2A6',
       font: 'caveat',
       textColor: '#4A3B3B',
       fontSize: 20,
@@ -86,121 +312,59 @@
       textFrontHTML: '',
       textBackHTML: '',
       photo: null,
-      stickersFront: [], // {emoji, x, y} em % relativo à carta
+      stickersFront: [],
       stickersBack: [],
-      createdAt: null
+      createdAt: null,
+      status: 'rascunho',   // 'rascunho' | 'enviada'
+      recipientId: null,
+      sentAt: null
     };
   }
 
   /* ---------------------------------------------------------------------
-     3. ABRIR / FECHAR EDITOR
+     5. ABRIR / FECHAR EDITOR
   --------------------------------------------------------------------- */
   function openEditor(existingLetter){
     letter = existingLetter ? JSON.parse(JSON.stringify(existingLetter)) : createBlankLetter();
     editingId = existingLetter ? existingLetter.id : null;
-    isFlipped = false;
-    card3d.classList.remove('is-flipped');
+    editorTitleText.textContent = existingLetter ? 'Editar carta' : 'Nova carta';
+
+    if (editorRotator) editorRotator.destroy();
+    editorRotator = createRotator(stageScene, card3d);
+
     applyLetterToDOM();
     editor.classList.add('is-open');
     editor.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
+    closeDrawer();
   }
 
   function closeEditor(){
     editor.classList.remove('is-open');
     editor.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+    if (editorRotator){ editorRotator.destroy(); editorRotator = null; }
   }
 
   openEditorBtn.addEventListener('click', () => openEditor(null));
-  heroCreateBtn.addEventListener('click', () => openEditor(null));
+  drawerNewBtn.addEventListener('click', () => openEditor(null));
   closeEditorBtn.addEventListener('click', closeEditor);
   editor.addEventListener('click', (e) => {
-    if (e.target === editor) closeEditor(); // clique fora do painel fecha
+    if (e.target === editor) closeEditor();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && editor.classList.contains('is-open')) closeEditor();
+    if (e.key !== 'Escape') return;
+    if (editor.classList.contains('is-open')) closeEditor();
+    if (drawer.classList.contains('is-open')) closeDrawer();
+    if (sendModal.classList.contains('is-open')) closeSendModal();
+    if (viewer.classList.contains('is-open')) closeViewer();
   });
+
+  flipBtn.addEventListener('click', () => editorRotator && editorRotator.flip());
 
   /* ---------------------------------------------------------------------
-     4. ROTAÇÃO 3D (ARRASTAR) + VIRAR FRENTE/VERSO
+     6. PERSONALIZAÇÃO
   --------------------------------------------------------------------- */
-  let dragging = false;
-  let startX = 0, startY = 0;
-  let baseRotY = -22, baseRotX = 10; // rotação de "descanso" (efeito objeto real, bem perceptível em 3D)
-  let currentRotY = baseRotY, currentRotX = baseRotX;
-  let idleT = 0;
-  let idleFrame = null;
-
-  function setCardTransform(rotX, rotY, extraY = 0){
-    card3d.style.transform = `translateY(${extraY}px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
-  }
-
-  // Animação "viva": a carta oscila suavemente em 3D quando ninguém a
-  // está arrastando, deixando claro que é um objeto tridimensional real
-  // (uma imagem estática de carta quase plana passa despercebida).
-  function idleLoop(){
-    idleT += 0.012;
-    if (!dragging){
-      const wobbleY = Math.sin(idleT) * 4;
-      const floatY = Math.sin(idleT * 0.8) * 5;
-      setCardTransform(baseRotX, (isFlipped ? baseRotY + 180 : baseRotY) + wobbleY, floatY);
-    }
-    idleFrame = requestAnimationFrame(idleLoop);
-  }
-  idleLoop();
-
-  stageScene.addEventListener('pointerdown', (e) => {
-    // não iniciar arraste se o clique for em um adesivo ou no texto editável
-    if (e.target.closest('.sticker') || e.target.isContentEditable) return;
-    dragging = true;
-    card3d.classList.add('is-dragging');
-    startX = e.clientX;
-    startY = e.clientY;
-    stageScene.setPointerCapture(e.pointerId);
-  });
-
-  stageScene.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    currentRotY = baseRotY + dx * 0.4 + (isFlipped ? 180 : 0);
-    currentRotX = baseRotX - dy * 0.25;
-    currentRotX = Math.max(-25, Math.min(25, currentRotX));
-    setCardTransform(currentRotX, currentRotY);
-  });
-
-  function withTransition(fn){
-    card3d.classList.add('is-transitioning');
-    fn();
-    setTimeout(() => card3d.classList.remove('is-transitioning'), 950);
-  }
-
-  function endDrag(){
-    if (!dragging) return;
-    dragging = false;
-    // volta suavemente para o repouso, preservando o lado atual
-    baseRotY = -22;
-    baseRotX = 10;
-    withTransition(() => setCardTransform(baseRotX, isFlipped ? baseRotY + 180 : baseRotY));
-  }
-  stageScene.addEventListener('pointerup', endDrag);
-  stageScene.addEventListener('pointerleave', endDrag);
-
-  function flipCard(){
-    isFlipped = !isFlipped;
-    withTransition(() => setCardTransform(baseRotX, isFlipped ? baseRotY + 180 : baseRotY));
-  }
-  flipBtn.addEventListener('click', flipCard);
-
-  // define transform inicial
-  setCardTransform(baseRotX, baseRotY);
-
-  /* ---------------------------------------------------------------------
-     5. PERSONALIZAÇÃO
-  --------------------------------------------------------------------- */
-
-  // --- abas ---
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       tabs.forEach(t => t.classList.remove('is-active'));
@@ -210,7 +374,6 @@
     });
   });
 
-  // --- cor do papel ---
   paperColorBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       letter.paperColor = btn.dataset.color;
@@ -219,7 +382,6 @@
     });
   });
 
-  // --- textura ---
   textureBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       letter.texture = btn.dataset.texture;
@@ -228,7 +390,6 @@
     });
   });
 
-  // --- tamanho da carta ---
   sizeBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       letter.size = btn.dataset.size;
@@ -237,7 +398,13 @@
     });
   });
 
-  // --- fonte ---
+  envelopeColorBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      letter.envelopeColor = btn.dataset.envcolor;
+      setActive(envelopeColorBtns, btn);
+    });
+  });
+
   fontBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       letter.font = btn.dataset.font;
@@ -246,7 +413,6 @@
     });
   });
 
-  // --- cor do texto ---
   textColorBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       letter.textColor = btn.dataset.color;
@@ -255,13 +421,11 @@
     });
   });
 
-  // --- tamanho do texto ---
   fontSizeSlider.addEventListener('input', () => {
     letter.fontSize = Number(fontSizeSlider.value);
     applyTextStyle();
   });
 
-  // --- alinhamento ---
   alignBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       letter.align = btn.dataset.align;
@@ -270,7 +434,6 @@
     });
   });
 
-  // --- estilo geral (preset) ---
   styleBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       letter.style = btn.dataset.style;
@@ -309,21 +472,21 @@
   }
 
   function applyStylePreset(){
-    const stage3d = document.getElementById('stage');
-    stage3d.classList.remove('style--romantico','style--classico','style--vintage','style--minimalista');
-    stage3d.classList.add(`style--${letter.style}`);
+    document.getElementById('stage').classList.remove('style--romantico','style--classico','style--vintage','style--minimalista');
+    document.getElementById('stage').classList.add(`style--${letter.style}`);
   }
 
   /* ---------------------------------------------------------------------
-     6. ADESIVOS
+     7. ADESIVOS
   --------------------------------------------------------------------- */
   stickerPicker.forEach(btn => {
     btn.addEventListener('click', () => addSticker(btn.dataset.sticker));
   });
 
   function addSticker(emoji){
-    const layer = isFlipped ? stickerLayerBack : stickerLayerFront;
-    const list = isFlipped ? letter.stickersBack : letter.stickersFront;
+    const facing = editorRotator ? editorRotator.getFacing() : 'front';
+    const layer = facing === 'back' ? stickerLayerBack : stickerLayerFront;
+    const list = facing === 'back' ? letter.stickersBack : letter.stickersFront;
     const data = { emoji, x: 50, y: 50 };
     list.push(data);
     renderSticker(layer, data, list);
@@ -336,14 +499,14 @@
     el.style.left = data.x + '%';
     el.style.top = data.y + '%';
 
-    let dragging = false;
+    let draggingSticker = false;
     el.addEventListener('pointerdown', (e) => {
-      dragging = true;
+      draggingSticker = true;
       el.setPointerCapture(e.pointerId);
       e.stopPropagation();
     });
     el.addEventListener('pointermove', (e) => {
-      if (!dragging) return;
+      if (!draggingSticker) return;
       const rect = layer.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -353,7 +516,7 @@
       el.style.top = data.y + '%';
       e.stopPropagation();
     });
-    el.addEventListener('pointerup', (e) => { dragging = false; e.stopPropagation(); });
+    el.addEventListener('pointerup', (e) => { draggingSticker = false; e.stopPropagation(); });
     el.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       const idx = list.indexOf(data);
@@ -372,7 +535,7 @@
   }
 
   /* ---------------------------------------------------------------------
-     7. FOTO
+     8. FOTO
   --------------------------------------------------------------------- */
   photoInput.addEventListener('change', () => {
     const file = photoInput.files[0];
@@ -400,42 +563,30 @@
     }
   }
 
-  /* ---------------------------------------------------------------------
-     TEXTO (contenteditable) — mantém estado sincronizado
-  --------------------------------------------------------------------- */
   textFront.addEventListener('input', () => { letter.textFrontHTML = textFront.innerHTML; });
   textBack.addEventListener('input',  () => { letter.textBackHTML  = textBack.innerHTML;  });
 
-  /* ---------------------------------------------------------------------
-     APLICAR TODO O ESTADO NO DOM (usado ao abrir/reabrir o editor)
-  --------------------------------------------------------------------- */
   function applyLetterToDOM(){
-    // papel
     setActiveByValue(paperColorBtns, 'color', letter.paperColor);
     setActiveByValue(textureBtns, 'texture', letter.texture);
     setActiveByValue(sizeBtns, 'size', letter.size);
+    setActiveByValue(envelopeColorBtns, 'envcolor', letter.envelopeColor);
     applyPaper();
     applySize();
 
-    // texto
     setActiveByValue(fontBtns, 'font', letter.font);
     setActiveByValue(textColorBtns, 'color', letter.textColor);
     setActiveByValue(alignBtns, 'align', letter.align);
     fontSizeSlider.value = letter.fontSize;
     applyTextStyle();
 
-    // estilo
     setActiveByValue(styleBtns, 'style', letter.style);
     applyStylePreset();
 
-    // conteúdo
     textFront.innerHTML = letter.textFrontHTML || '';
     textBack.innerHTML = letter.textBackHTML || '';
 
-    // foto
     applyPhoto();
-
-    // adesivos
     renderAllStickers();
   }
 
@@ -446,23 +597,12 @@
   }
 
   /* ---------------------------------------------------------------------
-     8. SALVAR CARTA + GALERIA (localStorage)
+     9. SALVAR CARTA + "MINHAS CARTAS" (drawer)
   --------------------------------------------------------------------- */
-  const STORAGE_KEY = 'romanticwave_letters';
+  function loadLetters(){ return readJSON(STORAGE.LETTERS, []); }
+  function persistLetters(letters){ writeJSON(STORAGE.LETTERS, letters); }
 
-  function loadLetters(){
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-    } catch {
-      return [];
-    }
-  }
-
-  function persistLetters(letters){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(letters));
-  }
-
-  function saveLetter(){
+  function saveLetter(silent){
     const letters = loadLetters();
     letter.textFrontHTML = textFront.innerHTML;
     letter.textBackHTML = textBack.innerHTML;
@@ -473,15 +613,16 @@
       letter.createdAt = letters[idx] ? letters[idx].createdAt : Date.now();
       if (idx > -1) letters[idx] = letter; else letters.push(letter);
     } else {
-      letter.id = 'letter_' + Date.now();
+      letter.id = uid('letter');
       letter.createdAt = Date.now();
       editingId = letter.id;
       letters.push(letter);
     }
 
     persistLetters(letters);
-    renderGallery();
-    flashSaved();
+    renderMyLetters();
+    if (!silent) flashSaved();
+    return letter;
   }
 
   function flashSaved(){
@@ -490,48 +631,314 @@
     setTimeout(() => { saveBtn.innerHTML = original; }, 1400);
   }
 
-  saveBtn.addEventListener('click', saveLetter);
+  saveBtn.addEventListener('click', () => saveLetter(false));
 
-  function renderGallery(){
+  function renderMyLetters(){
     const letters = loadLetters().sort((a, b) => b.createdAt - a.createdAt);
-    galleryCount.textContent = `${letters.length} salva${letters.length === 1 ? '' : 's'}`;
 
     if (letters.length === 0){
-      galleryGrid.innerHTML = `<div class="gallery__empty">Nenhuma carta ainda. Clique em “+” e escreva a primeira.</div>`;
+      myLettersList.innerHTML = `<div class="drawer__empty">Você ainda não criou nenhuma carta.</div>`;
       return;
     }
 
-    galleryGrid.innerHTML = '';
+    myLettersList.innerHTML = '';
     letters.forEach(l => {
-      const card = document.createElement('button');
-      card.className = 'mini-card';
-      card.style.backgroundColor = l.paperColor;
-      card.style.textAlign = 'left';
-      card.style.border = 'none';
+      const item = document.createElement('button');
+      item.className = 'my-letter-item';
+
+      const swatch = document.createElement('span');
+      swatch.className = 'my-letter-item__swatch';
+      swatch.style.backgroundColor = l.paperColor;
+
+      const body = document.createElement('span');
+      body.className = 'my-letter-item__body';
 
       const preview = document.createElement('div');
-      preview.className = 'mini-card__preview';
-      preview.style.fontFamily = FONT_MAP[l.font] || FONT_MAP.caveat;
-      preview.style.color = l.textColor;
+      preview.className = 'my-letter-item__preview';
       const tmp = document.createElement('div');
       tmp.innerHTML = l.textFrontHTML || '';
       preview.textContent = tmp.textContent || 'Carta em branco';
 
-      const date = document.createElement('div');
-      date.className = 'mini-card__date';
-      date.textContent = new Date(l.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+      const meta = document.createElement('div');
+      meta.className = 'my-letter-item__meta';
+      meta.textContent = formatDate(l.createdAt);
 
-      card.appendChild(preview);
-      card.appendChild(date);
-      card.addEventListener('click', () => openEditor(l));
-      galleryGrid.appendChild(card);
+      body.appendChild(preview);
+      body.appendChild(meta);
+
+      const tag = document.createElement('span');
+      tag.className = 'status-tag ' + (l.status === 'enviada' ? 'status-tag--enviada' : 'status-tag--rascunho');
+      tag.textContent = l.status === 'enviada' ? `Enviada · ${l.recipientId}` : 'Rascunho';
+
+      item.appendChild(swatch);
+      item.appendChild(body);
+      item.appendChild(tag);
+      item.addEventListener('click', () => openEditor(l));
+      myLettersList.appendChild(item);
     });
   }
 
+  function openDrawer(){
+    renderMyLetters();
+    drawer.classList.add('is-open');
+    drawer.setAttribute('aria-hidden', 'false');
+  }
+  function closeDrawer(){
+    drawer.classList.remove('is-open');
+    drawer.setAttribute('aria-hidden', 'true');
+  }
+  openDrawerBtn.addEventListener('click', openDrawer);
+  closeDrawerBtn.addEventListener('click', closeDrawer);
+  drawerScrim.addEventListener('click', closeDrawer);
+
   /* ---------------------------------------------------------------------
-     9. INICIALIZAÇÃO
+     10. ENVIO POR ID + CORREIO (caixa de entrada)
+     ---------------------------------------------------------------------
+     Sem servidor, o "envio" é simulado dentro do próprio navegador: a
+     carta é guardada em uma caixa de correio compartilhada (localStorage),
+     indexada pelo ID do destinatário. Funciona de verdade para testar o
+     fluxo completo — inclusive enviando para o seu próprio ID — e já
+     deixa a estrutura pronta para, no futuro, trocar essa gravação local
+     por uma chamada de API real sem mudar o resto do app.
   --------------------------------------------------------------------- */
+  function loadMailbox(){ return readJSON(STORAGE.MAILBOX, {}); }
+  function persistMailbox(box){ writeJSON(STORAGE.MAILBOX, box); }
+
+  let pendingSendLetter = null;
+
+  function openSendModal(){
+    pendingSendLetter = saveLetter(true); // garante que a versão mais recente seja enviada
+    recipientIdInput.value = '';
+    sendModal.classList.add('is-open');
+    sendModal.setAttribute('aria-hidden', 'false');
+    setTimeout(() => recipientIdInput.focus(), 250);
+  }
+  function closeSendModal(){
+    sendModal.classList.remove('is-open');
+    sendModal.setAttribute('aria-hidden', 'true');
+  }
+  sendBtn.addEventListener('click', openSendModal);
+  cancelSendBtn.addEventListener('click', closeSendModal);
+  sendModalScrim.addEventListener('click', closeSendModal);
+  recipientIdInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') confirmSendBtn.click();
+  });
+
+  confirmSendBtn.addEventListener('click', () => {
+    const recipientId = recipientIdInput.value.trim().toUpperCase();
+    if (!recipientId){
+      recipientIdInput.focus();
+      return;
+    }
+    closeSendModal();
+    playSendAnimation(() => finalizeSend(recipientId));
+  });
+
+  function playSendAnimation(onDone){
+    sendFx.classList.add('is-active');
+    sendFx.classList.remove('is-flying');
+    sendFxMsg.textContent = 'fechando o envelope…';
+    document.getElementById('sendEnvelope').style.setProperty('--env-color', letter.envelopeColor);
+
+    setTimeout(() => {
+      sendFxMsg.textContent = 'enviando com carinho…';
+      sendFx.classList.add('is-flying');
+    }, 700);
+
+    setTimeout(() => {
+      sendFx.classList.remove('is-active', 'is-flying');
+      onDone();
+    }, 1700);
+  }
+
+  function finalizeSend(recipientId){
+    const letters = loadLetters();
+    const idx = letters.findIndex(l => l.id === editingId);
+    if (idx > -1){
+      letters[idx].status = 'enviada';
+      letters[idx].recipientId = recipientId;
+      letters[idx].sentAt = Date.now();
+      persistLetters(letters);
+
+      const mailbox = loadMailbox();
+      if (!mailbox[recipientId]) mailbox[recipientId] = [];
+      mailbox[recipientId].push({
+        mailId: uid('mail'),
+        fromId: getMyId(),
+        deliveredAt: Date.now(),
+        read: false,
+        letter: JSON.parse(JSON.stringify(letters[idx]))
+      });
+      persistMailbox(mailbox);
+    }
+
+    renderMyLetters();
+    renderInbox();
+    closeEditor();
+    showToast(`Carta enviada para ${recipientId} ✦`);
+  }
+
+  function renderInbox(){
+    const mailbox = loadMailbox();
+    const myId = getMyId();
+    const items = (mailbox[myId] || []).slice().sort((a, b) => b.deliveredAt - a.deliveredAt);
+
+    if (items.length === 0){
+      inboxGrid.innerHTML = `<div class="correio__empty">Nenhuma carta chegou ainda.<br>Compartilhe seu ID (acima) para receber a primeira ♡</div>`;
+      return;
+    }
+
+    inboxGrid.innerHTML = '';
+    items.forEach(entry => {
+      const btn = document.createElement('button');
+      btn.className = 'mail-item';
+
+      const envPreview = document.createElement('span');
+      envPreview.className = 'mail-item__env';
+      envPreview.style.background = entry.letter.envelopeColor || '#D9C2A6';
+
+      const from = document.createElement('span');
+      from.className = 'mail-item__from';
+      from.textContent = `de ${entry.fromId}`;
+
+      const date = document.createElement('span');
+      date.className = 'mail-item__date';
+      date.textContent = formatDate(entry.deliveredAt);
+
+      btn.appendChild(envPreview);
+      btn.appendChild(from);
+      btn.appendChild(date);
+
+      if (!entry.read){
+        const dot = document.createElement('span');
+        dot.className = 'mail-item__unread';
+        btn.appendChild(dot);
+      }
+
+      btn.addEventListener('click', () => openViewer(entry));
+      inboxGrid.appendChild(btn);
+    });
+  }
+
+  copyIdBtn.addEventListener('click', () => {
+    const id = getMyId();
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(id).then(() => showToast('ID copiado: ' + id));
+    } else {
+      showToast('Seu ID é ' + id);
+    }
+  });
+
+  /* ---------------------------------------------------------------------
+     11. VISUALIZADOR DE CARTA RECEBIDA (envelope -> carta 3D somente leitura)
+  --------------------------------------------------------------------- */
+  let currentMailEntry = null;
+
+  function openViewer(entry){
+    currentMailEntry = entry;
+    const l = entry.letter;
+
+    viewer.classList.add('is-open');
+    viewer.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    // reseta para o estado "envelope fechado"
+    viewerEnvelope.classList.remove('is-open');
+    viewerEnvelope.style.setProperty('--env-color', l.envelopeColor || '#D9C2A6');
+    viewerEnvelopeStage.hidden = false;
+    viewerStage.hidden = true;
+    viewerFromHint.textContent = `carta de ${entry.fromId} • toque para abrir`;
+
+    populateViewerCard(l);
+  }
+
+  function populateViewerCard(l){
+    [viewerFrameFront, viewerFrameBack].forEach(frame => {
+      frame.parentElement.style.backgroundColor = l.paperColor;
+      frame.parentElement.classList.remove('paper--liso','paper--linho','paper--kraft','paper--vintage');
+      frame.parentElement.classList.add(`paper--${l.texture}`);
+    });
+
+    [viewerTextFront, viewerTextBack].forEach(el => {
+      el.style.fontFamily = FONT_MAP[l.font];
+      el.style.color = l.textColor;
+      el.style.textAlign = l.align;
+    });
+    viewerTextFront.style.fontSize = l.fontSize + 'px';
+    viewerTextBack.style.fontSize = Math.max(14, l.fontSize - 2) + 'px';
+    viewerTextFront.innerHTML = l.textFrontHTML || '';
+    viewerTextBack.innerHTML = l.textBackHTML || '';
+
+    if (l.photo){
+      viewerPhotoImg.src = l.photo;
+      viewerPhotoSlot.hidden = false;
+    } else {
+      viewerPhotoImg.src = '';
+      viewerPhotoSlot.hidden = true;
+    }
+
+    viewerStickerLayerFront.innerHTML = '';
+    viewerStickerLayerBack.innerHTML = '';
+    (l.stickersFront || []).forEach(d => renderStaticSticker(viewerStickerLayerFront, d));
+    (l.stickersBack || []).forEach(d => renderStaticSticker(viewerStickerLayerBack, d));
+
+    document.getElementById('viewerStage').classList.remove('style--romantico','style--classico','style--vintage','style--minimalista');
+    document.getElementById('viewerStage').classList.add(`style--${l.style}`);
+  }
+
+  function renderStaticSticker(layer, data){
+    const el = document.createElement('span');
+    el.className = 'sticker';
+    el.style.left = data.x + '%';
+    el.style.top = data.y + '%';
+    el.style.cursor = 'default';
+    el.textContent = data.emoji;
+    layer.appendChild(el);
+  }
+
+  function openLetterFromEnvelope(){
+    if (!currentMailEntry) return;
+    viewerEnvelope.classList.add('is-open');
+
+    if (!currentMailEntry.read){
+      currentMailEntry.read = true;
+      const mailbox = loadMailbox();
+      const myId = getMyId();
+      const arr = mailbox[myId] || [];
+      const idx = arr.findIndex(m => m.mailId === currentMailEntry.mailId);
+      if (idx > -1){ arr[idx].read = true; mailbox[myId] = arr; persistMailbox(mailbox); }
+      renderInbox();
+    }
+
+    setTimeout(() => {
+      viewerEnvelopeStage.hidden = true;
+      viewerStage.hidden = false;
+      if (viewerRotator) viewerRotator.destroy();
+      viewerRotator = createRotator(viewerScene, viewerCard3d);
+    }, 550);
+  }
+  viewerEnvelopeStage.addEventListener('click', openLetterFromEnvelope);
+
+  viewerFlipBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (viewerRotator) viewerRotator.flip();
+  });
+
+  function closeViewer(){
+    viewer.classList.remove('is-open');
+    viewer.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    if (viewerRotator){ viewerRotator.destroy(); viewerRotator = null; }
+    currentMailEntry = null;
+  }
+  closeViewerBtn.addEventListener('click', closeViewer);
+
+  /* ---------------------------------------------------------------------
+     12. INICIALIZAÇÃO
+  --------------------------------------------------------------------- */
+  myIdValue.textContent = getMyId();
   applyLetterToDOM();
-  renderGallery();
+  renderMyLetters();
+  renderInbox();
 
 })();
