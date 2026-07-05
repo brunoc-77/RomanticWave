@@ -127,12 +127,28 @@
   --------------------------------------------------------------------- */
   let dragging = false;
   let startX = 0, startY = 0;
-  let baseRotY = -10, baseRotX = 6; // rotação de "descanso" (efeito objeto real)
+  let baseRotY = -22, baseRotX = 10; // rotação de "descanso" (efeito objeto real, bem perceptível em 3D)
   let currentRotY = baseRotY, currentRotX = baseRotX;
+  let idleT = 0;
+  let idleFrame = null;
 
-  function setCardTransform(rotX, rotY){
-    card3d.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+  function setCardTransform(rotX, rotY, extraY = 0){
+    card3d.style.transform = `translateY(${extraY}px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
   }
+
+  // Animação "viva": a carta oscila suavemente em 3D quando ninguém a
+  // está arrastando, deixando claro que é um objeto tridimensional real
+  // (uma imagem estática de carta quase plana passa despercebida).
+  function idleLoop(){
+    idleT += 0.012;
+    if (!dragging){
+      const wobbleY = Math.sin(idleT) * 4;
+      const floatY = Math.sin(idleT * 0.8) * 5;
+      setCardTransform(baseRotX, (isFlipped ? baseRotY + 180 : baseRotY) + wobbleY, floatY);
+    }
+    idleFrame = requestAnimationFrame(idleLoop);
+  }
+  idleLoop();
 
   stageScene.addEventListener('pointerdown', (e) => {
     // não iniciar arraste se o clique for em um adesivo ou no texto editável
@@ -154,21 +170,26 @@
     setCardTransform(currentRotX, currentRotY);
   });
 
+  function withTransition(fn){
+    card3d.classList.add('is-transitioning');
+    fn();
+    setTimeout(() => card3d.classList.remove('is-transitioning'), 950);
+  }
+
   function endDrag(){
     if (!dragging) return;
     dragging = false;
-    card3d.classList.remove('is-dragging');
     // volta suavemente para o repouso, preservando o lado atual
-    baseRotY = -10;
-    baseRotX = 6;
-    setCardTransform(baseRotX, isFlipped ? baseRotY + 180 : baseRotY);
+    baseRotY = -22;
+    baseRotX = 10;
+    withTransition(() => setCardTransform(baseRotX, isFlipped ? baseRotY + 180 : baseRotY));
   }
   stageScene.addEventListener('pointerup', endDrag);
   stageScene.addEventListener('pointerleave', endDrag);
 
   function flipCard(){
     isFlipped = !isFlipped;
-    setCardTransform(baseRotX, isFlipped ? baseRotY + 180 : baseRotY);
+    withTransition(() => setCardTransform(baseRotX, isFlipped ? baseRotY + 180 : baseRotY));
   }
   flipBtn.addEventListener('click', flipCard);
 

@@ -35,13 +35,28 @@
   <!-- ======================= HOME ======================= -->
   <main class="home">
     <section class="hero">
-      <p class="hero__eyebrow">uma onda de carinho, escrita à mão</p>
-      <h1 class="hero__title">Palavras que se tocam,<br> mesmo à distância.</h1>
-      <p class="hero__subtitle">
-        Crie cartas com aparência real — papel, tinta, textura e um verso guardado
-        só para quem você ama. Gire, escreva, decore.
-      </p>
-      <button class="btn-primary" id="heroCreateBtn">Criar minha carta</button>
+      <div class="hero__copy">
+        <p class="hero__eyebrow">uma onda de carinho, escrita à mão</p>
+        <h1 class="hero__title">Palavras que se tocam,<br> mesmo à distância.</h1>
+        <p class="hero__subtitle">
+          Crie cartas com aparência real — papel, tinta, textura e um verso guardado
+          só para quem você ama. Gire, escreva, decore.
+        </p>
+        <div class="hero__cta-row">
+          <button class="btn-primary" id="heroCreateBtn">Criar minha carta</button>
+          <span class="hero__cta-note">leva menos de um minuto para começar</span>
+        </div>
+      </div>
+
+      <!-- pequena carta decorativa, só CSS, ecoando o editor 3D real -->
+      <div class="hero__art" aria-hidden="true">
+        <div class="hero__mini-card">
+          <span class="hero__mini-line"></span>
+          <span class="hero__mini-line hero__mini-line--short"></span>
+          <span class="hero__mini-heart">♡</span>
+        </div>
+        <div class="hero__mini-card hero__mini-card--back"></div>
+      </div>
     </section>
 
     <section class="gallery" id="gallery">
