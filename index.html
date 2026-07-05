@@ -113,6 +113,11 @@
         <!-- ============ PALCO 3D ============ -->
         <div class="stage" id="stage">
           <div class="stage__scene" id="stageScene">
+            <div class="stage-envelope" id="stageEnvelope" aria-hidden="true">
+              <div class="stage-envelope__body"></div>
+              <div class="stage-envelope__flap"></div>
+              <div class="stage-envelope__seal">✦</div>
+            </div>
             <div class="card3d" id="card3d">
 
               <!-- FRENTE -->
@@ -199,21 +204,21 @@
               <button class="option" data-size="grande">G</button>
             </div>
 
+            <p class="side-panel__label">Envelope 3D</p>
+            <div class="toggle-row">
+              <button class="toggle-pill is-active" id="envelope3dToggle" aria-pressed="true" type="button">Ativado</button>
+              <p class="side-panel__hint">
+                Quando ativado, a carta entra e sai do envelope no próprio palco 3D.
+                Toque no envelope para abrir ou fechar. Quando desativado, a carta fica totalmente exposta.
+              </p>
+            </div>
+
             <p class="side-panel__label">Envelope</p>
             <div class="swatch-row" id="envelopeColors">
               <button class="swatch is-active" style="--sw:#D9C2A6" data-envcolor="#D9C2A6" title="Kraft"></button>
               <button class="swatch" style="--sw:#F3D9DA" data-envcolor="#F3D9DA" title="Blush"></button>
               <button class="swatch" style="--sw:#D9CFE8" data-envcolor="#D9CFE8" title="Lilás"></button>
               <button class="swatch" style="--sw:#EFEAE3" data-envcolor="#EFEAE3" title="Marfim"></button>
-            </div>
-            <div class="envelope-preview">
-              <div class="envelope envelope--sm" id="envelopePreview" title="Toque para espiar aberto/fechado">
-                <div class="envelope__back"></div>
-                <div class="envelope__letter"></div>
-                <div class="envelope__flap"></div>
-                <div class="envelope__seal">✦</div>
-              </div>
-              <p class="side-panel__hint">é assim que sua carta vai chegar — toque no envelope para espiar</p>
             </div>
           </section>
 

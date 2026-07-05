@@ -95,17 +95,27 @@
     let idleRAF = null;
     let destroyed = false;
     let enabled = true;
+    let envelopeEnabled = false;
+    let envelopeOpen = true;
+
+    function getEnvelopeTransform(){
+      if (!envelopeEnabled) return { lift: 0, scale: 1 };
+      return envelopeOpen
+        ? { lift: -10, scale: 1 }
+        : { lift: 42, scale: 0.84 };
+    }
 
     function apply(extraX = 0, extraY = 0){
-      cardEl.style.transform = `rotateX(${rotX + extraX}deg) rotateY(${rotY + extraY}deg)`;
+      const env = getEnvelopeTransform();
+      cardEl.style.transform = `translateY(${env.lift}px) scale(${env.scale}) rotateX(${rotX + extraX}deg) rotateY(${rotY + extraY}deg)`;
     }
 
     function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
     function onPointerDown(e){
       if (!enabled) return;
-      if (e.target.closest('.sticker')) return; // adesivos cuidam do próprio arraste
-      if (pointerId !== null) return; // já existe um ponteiro ativo (evita multitoque)
+      if (e.target.closest('.sticker')) return;
+      if (pointerId !== null) return;
       pointerId = e.pointerId;
       dragging = true;
       movedEnough = false;
@@ -124,7 +134,6 @@
         const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
         if (dist > 6){
           movedEnough = true;
-          // começou a girar de verdade: cancela seleção/foco de texto
           if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
           const sel = window.getSelection && window.getSelection();
           if (sel) sel.removeAllRanges();
@@ -147,7 +156,6 @@
       dragging = false;
       pointerId = null;
       cardEl.classList.remove('is-grabbing');
-      // sem "chute" de volta: a carta permanece exatamente onde foi solta
     }
 
     sceneEl.addEventListener('pointerdown', onPointerDown);
@@ -156,8 +164,6 @@
     sceneEl.addEventListener('pointercancel', endDrag);
     sceneEl.addEventListener('lostpointercapture', endDrag);
 
-    // animação viva: pequena oscilação contínua quando ninguém toca a carta,
-    // deixando óbvio que é um objeto 3D real mesmo parado.
     function idleLoop(t){
       if (destroyed) return;
       if (!dragging && !isFlipping && enabled){
@@ -195,6 +201,11 @@
         enabled = v;
         if (!v){ dragging = false; cardEl.classList.remove('is-grabbing'); }
       },
+      setEnvelopeState(vEnabled, vOpen){
+        envelopeEnabled = vEnabled;
+        envelopeOpen = vOpen;
+        apply();
+      },
       getFacing(){
         const norm = ((rotY % 360) + 360) % 360;
         return (norm > 90 && norm < 270) ? 'back' : 'front';
@@ -217,6 +228,8 @@
   const openEditorBtn  = document.getElementById('openEditorBtn');
   const openDrawerBtn  = document.getElementById('openDrawerBtn');
   const closeEditorBtn = document.getElementById('closeEditorBtn');
+  const stage = document.getElementById('stage');
+  const stageHint = stage.querySelector('.stage__hint');
   const editor         = document.getElementById('editor');
   const editorTitleText = document.getElementById('editorTitleText');
 
@@ -253,7 +266,8 @@
   const styleBtns      = document.querySelectorAll('#styles .style-card');
   const shapeBtns      = document.querySelectorAll('#shapes .shape-card');
   const stickerPicker  = document.querySelectorAll('#stickerPicker .sticker-btn');
-  const envelopePreview = document.getElementById('envelopePreview');
+  const envelope3dToggle = document.getElementById('envelope3dToggle');
+  const stageEnvelope = document.getElementById('stageEnvelope');
   const drawColorBtns  = document.querySelectorAll('#drawColors .swatch');
   const drawSizeSlider = document.getElementById('drawSize');
   const clearDrawBtn   = document.getElementById('clearDrawBtn');
@@ -317,6 +331,7 @@
   let editingId = null;
   let editorRotator = null;
   let viewerRotator = null;
+  let envelopeOpen = false;
 
   function createBlankLetter(){
     return {
@@ -326,6 +341,7 @@
       size: 'media',
       shape: 'classico',
       envelopeColor: '#D9C2A6',
+      envelope3d: true,
       font: 'caveat',
       textColor: '#4A3B3B',
       fontSize: 20,
@@ -452,13 +468,29 @@
     btn.addEventListener('click', () => {
       letter.envelopeColor = btn.dataset.envcolor;
       setActive(envelopeColorBtns, btn);
-      envelopePreview.style.setProperty('--env-color', letter.envelopeColor);
+      applyEnvelope();
     });
   });
 
-  envelopePreview.addEventListener('click', () => {
-    envelopePreview.classList.toggle('is-open');
-  });
+  if (envelope3dToggle){
+    envelope3dToggle.addEventListener('click', () => {
+      letter.envelope3d = !letter.envelope3d;
+      if (letter.envelope3d){
+        envelopeOpen = false;
+      } else {
+        envelopeOpen = true;
+      }
+      applyEnvelope();
+    });
+  }
+
+  if (stageEnvelope){
+    stageEnvelope.addEventListener('click', () => {
+      if (!letter.envelope3d) return;
+      envelopeOpen = !envelopeOpen;
+      applyEnvelope();
+    });
+  }
 
   fontBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -519,6 +551,39 @@
   function applyShape(){
     card3d.classList.remove('shape--classico','shape--pergaminho','shape--coracao');
     card3d.classList.add(`shape--${letter.shape}`);
+  }
+
+  function applyEnvelope(){
+    const enabled = letter.envelope3d !== false;
+
+    stage.classList.toggle('is-envelope-enabled', enabled);
+    stage.classList.toggle('is-envelope-disabled', !enabled);
+    stage.classList.toggle('is-envelope-open', enabled && envelopeOpen);
+    stage.classList.toggle('is-envelope-closed', enabled && !envelopeOpen);
+
+    if (stageEnvelope){
+      stageEnvelope.setAttribute('aria-hidden', String(!enabled));
+      stageEnvelope.classList.toggle('is-open', enabled && envelopeOpen);
+    }
+
+    if (stageHint){
+      stageHint.textContent = !enabled
+        ? 'envelope desativado: a carta fica totalmente exposta'
+        : envelopeOpen
+          ? 'toque no envelope para recolher a carta'
+          : 'toque no envelope para abrir a carta';
+    }
+
+    if (envelope3dToggle){
+      envelope3dToggle.classList.toggle('is-active', enabled);
+      envelope3dToggle.setAttribute('aria-pressed', String(enabled));
+      envelope3dToggle.textContent = enabled ? 'Ativado' : 'Desativado';
+    }
+
+    if (editorRotator){
+      editorRotator.setEnvelopeState(enabled, envelopeOpen);
+      editorRotator.setEnabled(!enabled || envelopeOpen);
+    }
   }
 
   function applyTextStyle(){
@@ -766,8 +831,8 @@
     applyPaper();
     applySize();
     applyShape();
-    envelopePreview.classList.remove('is-open');
-    envelopePreview.style.setProperty('--env-color', letter.envelopeColor);
+    envelopeOpen = false;
+    applyEnvelope();
 
     setActiveByValue(fontBtns, 'font', letter.font);
     setActiveByValue(textColorBtns, 'color', letter.textColor);

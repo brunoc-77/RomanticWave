@@ -458,8 +458,84 @@ input{ font-family: inherit; }
   z-index: -1;
 }
 
+.stage-envelope{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(390px, 86%);
+  aspect-ratio: 3 / 2;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity .35s var(--ease), transform .55s var(--ease);
+  pointer-events: none;
+  z-index: 1;
+}
+.stage.is-envelope-enabled .stage-envelope{ opacity: 1; }
+.stage.is-envelope-disabled .stage-envelope{
+  opacity: 0;
+  pointer-events: none;
+}
+.stage.is-envelope-closed .stage-envelope{ pointer-events: auto; cursor: pointer; }
+.stage.is-envelope-open .stage-envelope{ pointer-events: none; }
+.stage-envelope__body,
+.stage-envelope__flap{
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+}
+.stage-envelope__body{
+  background: linear-gradient(180deg, var(--env-color, #D9C2A6), #d8c2aa);
+  box-shadow: 0 18px 38px rgba(0,0,0,.22);
+}
+.stage-envelope__body::before{
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background:
+    linear-gradient(155deg, rgba(255,255,255,.12) 0%, transparent 30%),
+    linear-gradient(205deg, rgba(0,0,0,.10) 0%, transparent 35%);
+}
+.stage-envelope__flap{
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 62%;
+  background: var(--env-color, #D9C2A6);
+  clip-path: polygon(0 0, 100% 0, 50% 92%);
+  transform-origin: top center;
+  transform: rotateX(0deg);
+  box-shadow: 0 8px 16px rgba(0,0,0,.10);
+  transition: transform .7s var(--ease), opacity .35s var(--ease);
+}
+.stage-envelope__seal{
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--white-satin);
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  box-shadow: 0 10px 18px rgba(0,0,0,.22);
+  transition: transform .45s var(--ease), opacity .35s var(--ease);
+}
+.stage.is-envelope-open .stage-envelope__flap{
+  transform: rotateX(160deg);
+  opacity: .45;
+}
+.stage.is-envelope-open .stage-envelope__seal{
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.55);
+}
+
 .card3d{
   position: relative;
+  z-index: 2;
   width: 100%;
   height: 100%;
   -webkit-transform-style: preserve-3d;
@@ -472,24 +548,30 @@ input{ font-family: inherit; }
 .card3d.is-grabbing{ cursor: grabbing; }
 .card3d.is-transitioning{ transition: transform .9s var(--ease); }
 
-/* Folhas empilhadas atrás da carta: vendem a ilusão de papel físico
-   real (não apenas um retângulo achatado com perspectiva). */
+.stage.is-envelope-enabled .card3d{
+  transition: transform .7s var(--ease), opacity .45s var(--ease), filter .45s var(--ease);
+}
+.stage.is-envelope-disabled .card3d{
+  opacity: 1;
+  filter: none;
+  pointer-events: auto;
+}
+.stage.is-envelope-open .card3d{
+  opacity: 1;
+  filter: none;
+  pointer-events: auto;
+}
+.stage.is-envelope-closed .card3d{
+  opacity: 0;
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+/* Folhas empilhadas atrás da carta removidas: a carta agora
+   aparece como uma peça única de papel, mais limpa e realista. */
 .card3d::before,
 .card3d::after{
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-md);
-  transform-style: preserve-3d;
-  box-shadow: 0 14px 30px rgba(0,0,0,.35);
-}
-.card3d::before{
-  background: #EFE4DC;
-  transform: translate3d(5px, 8px, -14px);
-}
-.card3d::after{
-  background: #E3D3C9;
-  transform: translate3d(10px, 16px, -28px);
+  content: none;
 }
 
 /* ---- formatos de papel: além do retângulo clássico, oferecemos
@@ -522,9 +604,9 @@ input{ font-family: inherit; }
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   box-shadow:
-    0 2px 4px rgba(74,59,59,.08),
-    0 20px 45px rgba(74,59,59,.28),
-    0 2px 0 rgba(255,255,255,.6) inset;
+    0 2px 4px rgba(74,59,59,.07),
+    0 12px 28px rgba(74,59,59,.16),
+    0 2px 0 rgba(255,255,255,.56) inset;
   background: var(--white-satin);
   overflow: hidden;
   transition: background-color .4s var(--ease);
@@ -784,6 +866,33 @@ input{ font-family: inherit; }
 .shape-card__icon--coracao{ clip-path: url(#heartClip); }
 
 /* preview miniatura do envelope, ao vivo */
+.toggle-row{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0 16px;
+}
+.toggle-pill{
+  align-self: flex-start;
+  border: 1px solid rgba(140,106,106,.2);
+  background: var(--cream-2);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: .78rem;
+  transition: transform .25s var(--ease), background .25s var(--ease), color .25s var(--ease);
+}
+.toggle-pill:hover{ transform: translateY(-1px); background: var(--blush); }
+.toggle-pill.is-active{
+  background: var(--ink);
+  color: var(--white-satin);
+  border-color: var(--ink);
+}
+.toggle-row .side-panel__hint{
+  margin: 0;
+  line-height: 1.65;
+}
+
 .envelope-preview{
   margin-top: 14px;
   display: flex;
@@ -1061,4 +1170,11 @@ input{ font-family: inherit; }
   .icon-btn{ padding: 8px 12px; }
   .drawer__panel{ width: 100vw; }
   .viewer__panel{ width: 100vw; height: 100vh; border-radius: 0; }
+}
+
+
+@media (max-width: 768px){
+  .stage-envelope{
+    width: min(320px, 88%);
+  }
 }
