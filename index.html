@@ -113,6 +113,7 @@
                   <div class="card3d__photo" id="photoSlot" hidden>
                     <img id="photoImg" alt="Foto adicionada à carta">
                   </div>
+                  <canvas class="card3d__draw" id="drawFront" aria-label="Área de desenho da frente"></canvas>
                   <div class="card3d__text" id="textFront" contenteditable="true" data-placeholder="Escreva aqui o que seu coração quer dizer..."></div>
                   <div class="card3d__stickers" id="stickerLayerFront"></div>
                 </div>
@@ -122,6 +123,7 @@
               <div class="card3d__face card3d__face--back" id="faceBack">
                 <div class="card3d__sheen"></div>
                 <div class="card3d__frame" id="frameBack">
+                  <canvas class="card3d__draw" id="drawBack" aria-label="Área de desenho do verso"></canvas>
                   <div class="card3d__text card3d__text--back" id="textBack" contenteditable="true" data-placeholder="P.S. ainda há mais espaço no verso..."></div>
                   <div class="card3d__stickers" id="stickerLayerBack"></div>
                   <div class="card3d__seal">Romanticwave</div>
@@ -140,11 +142,12 @@
             <button class="tab is-active" data-tab="papel">Papel</button>
             <button class="tab" data-tab="texto">Texto</button>
             <button class="tab" data-tab="estilo">Estilo</button>
+            <button class="tab" data-tab="desenho">Desenho</button>
             <button class="tab" data-tab="adesivos">Adesivos</button>
             <button class="tab" data-tab="foto">Foto</button>
           </div>
 
-          <!-- PAPEL -->
+          
           <section class="tab-panel is-active" data-panel="papel">
             <p class="side-panel__label">Cor do papel</p>
             <div class="swatch-row" id="paperColors">
@@ -171,6 +174,14 @@
               <button class="option" data-size="grande">G</button>
             </div>
 
+            <p class="side-panel__label">Formato da carta</p>
+            <div class="option-row option-row--wrap" id="paperShapes">
+              <button class="option is-active" data-shape="romance">Romance</button>
+              <button class="option" data-shape="classica">Clássica</button>
+              <button class="option" data-shape="pergaminho">Pergaminho</button>
+              <button class="option" data-shape="carta">Carta fina</button>
+            </div>
+
             <p class="side-panel__label">Envelope</p>
             <div class="swatch-row" id="envelopeColors">
               <button class="swatch is-active" style="--sw:#D9C2A6" data-envcolor="#D9C2A6" title="Kraft"></button>
@@ -178,9 +189,18 @@
               <button class="swatch" style="--sw:#D9CFE8" data-envcolor="#D9CFE8" title="Lilás"></button>
               <button class="swatch" style="--sw:#EFEAE3" data-envcolor="#EFEAE3" title="Marfim"></button>
             </div>
+
+            <div class="envelope-preview" aria-label="Prévia do envelope">
+              <div class="envelope envelope--preview" id="envelopePreview">
+                <div class="envelope__back"></div>
+                <div class="envelope__letter"></div>
+                <div class="envelope__flap"></div>
+                <div class="envelope__seal">✦</div>
+              </div>
+              <p class="envelope-preview__label" id="envelopePreviewLabel">Envelope kraft</p>
+            </div>
           </section>
 
-          <!-- TEXTO -->
           <section class="tab-panel" data-panel="texto">
             <p class="side-panel__label">Fonte</p>
             <div class="option-row option-row--wrap" id="fonts">
@@ -209,6 +229,7 @@
             </div>
           </section>
 
+          
           <!-- ESTILO -->
           <section class="tab-panel" data-panel="estilo">
             <p class="side-panel__label">Estilo geral</p>
@@ -232,7 +253,32 @@
             </div>
           </section>
 
+          <!-- DESENHO -->
+          <section class="tab-panel" data-panel="desenho">
+            <p class="side-panel__label">Modo</p>
+            <div class="option-row" id="drawModes">
+              <button class="option is-active" data-drawmode="idle">Escrever</button>
+              <button class="option" data-drawmode="paint">Pincel</button>
+              <button class="option" data-drawmode="erase">Borracha</button>
+            </div>
+
+            <p class="side-panel__label">Cor do traço</p>
+            <div class="swatch-row" id="drawColors">
+              <button class="swatch is-active" style="--sw:#4A3B3B" data-color="#4A3B3B" title="Marrom tinta"></button>
+              <button class="swatch" style="--sw:#8C6A6A" data-color="#8C6A6A" title="Mauve"></button>
+              <button class="swatch" style="--sw:#7A5B75" data-color="#7A5B75" title="Ameixa"></button>
+              <button class="swatch" style="--sw:#B08968" data-color="#B08968" title="Dourado suave"></button>
+            </div>
+
+            <p class="side-panel__label">Espessura</p>
+            <input type="range" id="brushSize" min="2" max="22" value="7" class="slider">
+
+            <button class="option option--danger" id="clearDrawingBtn">Limpar desenho da face atual</button>
+            <p class="side-panel__hint">Ative o modo de desenho e arraste sobre a carta. O traço fica salvo separadamente na frente e no verso.</p>
+          </section>
+
           <!-- ADESIVOS -->
+
           <section class="tab-panel" data-panel="adesivos">
             <p class="side-panel__label">Toque para adicionar à carta</p>
             <div class="sticker-grid" id="stickerPicker">

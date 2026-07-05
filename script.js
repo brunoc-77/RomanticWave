@@ -223,6 +223,8 @@
   const photoImg  = document.getElementById('photoImg');
   const photoInput = document.getElementById('photoInput');
   const removePhotoBtn = document.getElementById('removePhotoBtn');
+  const drawFrontCanvas = document.getElementById('drawFront');
+  const drawBackCanvas  = document.getElementById('drawBack');
 
   const stickerLayerFront = document.getElementById('stickerLayerFront');
   const stickerLayerBack  = document.getElementById('stickerLayerBack');
@@ -233,13 +235,20 @@
   const paperColorBtns = document.querySelectorAll('#paperColors .swatch');
   const textureBtns    = document.querySelectorAll('#textures .option');
   const sizeBtns       = document.querySelectorAll('#sizes .option');
+  const paperShapeBtns = document.querySelectorAll('#paperShapes .option');
   const envelopeColorBtns = document.querySelectorAll('#envelopeColors .swatch');
   const fontBtns       = document.querySelectorAll('#fonts .option');
   const textColorBtns  = document.querySelectorAll('#textColors .swatch');
   const fontSizeSlider = document.getElementById('fontSize');
   const alignBtns      = document.querySelectorAll('#aligns .option');
   const styleBtns      = document.querySelectorAll('#styles .style-card');
+  const drawModeBtns   = document.querySelectorAll('#drawModes .option');
+  const drawColorBtns  = document.querySelectorAll('#drawColors .swatch');
+  const brushSizeSlider = document.getElementById('brushSize');
+  const clearDrawingBtn = document.getElementById('clearDrawingBtn');
   const stickerPicker  = document.querySelectorAll('#stickerPicker .sticker-btn');
+  const envelopePreview = document.getElementById('envelopePreview');
+  const envelopePreviewLabel = document.getElementById('envelopePreviewLabel');
 
   // correio (home)
   const myIdValue  = document.getElementById('myIdValue');
@@ -289,6 +298,29 @@
     jost:   "'Jost', sans-serif"
   };
 
+  const PAPER_SHAPE_LABELS = {
+    romance: 'Carta romance',
+    classica: 'Carta clássica',
+    pergaminho: 'Pergaminho',
+    carta: 'Carta fina'
+  };
+
+  const DRAW_STATE = {
+    mode: 'idle',
+    color: '#4A3B3B',
+    size: 7
+  };
+
+  const drawingCanvases = {
+    front: drawFrontCanvas,
+    back: drawBackCanvas
+  };
+
+  const drawingContexts = {
+    front: drawFrontCanvas.getContext('2d'),
+    back: drawBackCanvas.getContext('2d')
+  };
+
   /* ---------------------------------------------------------------------
      4. ESTADO DA CARTA EM EDIÇÃO
   --------------------------------------------------------------------- */
@@ -303,6 +335,7 @@
       paperColor: '#FBF6F0',
       texture: 'liso',
       size: 'media',
+      paperShape: 'romance',
       envelopeColor: '#D9C2A6',
       font: 'caveat',
       textColor: '#4A3B3B',
@@ -312,6 +345,8 @@
       textFrontHTML: '',
       textBackHTML: '',
       photo: null,
+      drawingFront: null,
+      drawingBack: null,
       stickersFront: [],
       stickersBack: [],
       createdAt: null,
@@ -333,6 +368,11 @@
     editorRotator = createRotator(stageScene, card3d);
 
     applyLetterToDOM();
+    requestAnimationFrame(() => {
+      resizeDrawingCanvases();
+      restoreDrawingFace('front');
+      restoreDrawingFace('back');
+    });
     editor.classList.add('is-open');
     editor.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
@@ -398,6 +438,14 @@
     });
   });
 
+  paperShapeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      letter.paperShape = btn.dataset.shape;
+      setActive(paperShapeBtns, btn);
+      applyPaperShape();
+    });
+  });
+
   envelopeColorBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       letter.envelopeColor = btn.dataset.envcolor;
@@ -442,6 +490,28 @@
     });
   });
 
+  drawModeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      setDrawMode(btn.dataset.drawmode);
+    });
+  });
+
+  drawColorBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      DRAW_STATE.color = btn.dataset.color;
+      setActive(drawColorBtns, btn);
+    });
+  });
+
+  brushSizeSlider.addEventListener('input', () => {
+    DRAW_STATE.size = Number(brushSizeSlider.value);
+  });
+
+  clearDrawingBtn.addEventListener('click', () => {
+    const face = getCurrentFaceKey();
+    clearDrawingFace(face);
+  });
+
   function setActive(collection, active){
     collection.forEach(el => el.classList.remove('is-active'));
     active.classList.add('is-active');
@@ -453,6 +523,13 @@
       frame.parentElement.classList.remove('paper--liso','paper--linho','paper--kraft','paper--vintage');
       frame.parentElement.classList.add(`paper--${letter.texture}`);
     });
+    updateEnvelopePreview();
+  }
+
+  function applyPaperShape(){
+    const stage = document.getElementById('stage');
+    stage.classList.remove('paper-shape--romance','paper-shape--classica','paper-shape--pergaminho','paper-shape--carta');
+    stage.classList.add(`paper-shape--${letter.paperShape || 'romance'}`);
   }
 
   function applySize(){
@@ -475,6 +552,154 @@
     document.getElementById('stage').classList.remove('style--romantico','style--classico','style--vintage','style--minimalista');
     document.getElementById('stage').classList.add(`style--${letter.style}`);
   }
+
+  function getCurrentFaceKey(){
+    if (!editorRotator) return 'front';
+    return editorRotator.getFacing() === 'back' ? 'back' : 'front';
+  }
+
+  function updateEnvelopePreview(){
+    if (!envelopePreview) return;
+    envelopePreview.style.setProperty('--env-color', letter.envelopeColor);
+    const label = {
+      '#D9C2A6': 'Envelope kraft',
+      '#F3D9DA': 'Envelope blush',
+      '#D9CFE8': 'Envelope lilás',
+      '#EFEAE3': 'Envelope marfim'
+    }[letter.envelopeColor] || 'Envelope personalizado';
+    if (envelopePreviewLabel) envelopePreviewLabel.textContent = label;
+  }
+
+  function getCanvasForFace(face){
+    return face === 'back' ? drawBackCanvas : drawFrontCanvas;
+  }
+
+  function getContextForFace(face){
+    return face === 'back' ? drawingContexts.back : drawingContexts.front;
+  }
+
+  function getDrawingProp(face){
+    return face === 'back' ? 'drawingBack' : 'drawingFront';
+  }
+
+  function clearDrawingFace(face){
+    const canvas = getCanvasForFace(face);
+    const ctx = getContextForFace(face);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    letter[getDrawingProp(face)] = null;
+  }
+
+  function saveDrawingFace(face){
+    const canvas = getCanvasForFace(face);
+    letter[getDrawingProp(face)] = canvas.toDataURL('image/png');
+  }
+
+  function restoreDrawingFace(face){
+    const canvas = getCanvasForFace(face);
+    const ctx = getContextForFace(face);
+    const dataUrl = letter[getDrawingProp(face)];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!dataUrl) return;
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.src = dataUrl;
+  }
+
+  function resizeDrawingCanvases(){
+    Object.entries(drawingCanvases).forEach(([face, canvas]) => {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const snapshot = letter[getDrawingProp(face)];
+      canvas.width = Math.round(rect.width);
+      canvas.height = Math.round(rect.height);
+
+      const ctx = getContextForFace(face);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (snapshot){
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = snapshot;
+      }
+    });
+  }
+
+  function setDrawMode(mode){
+    DRAW_STATE.mode = mode;
+    const stage = document.getElementById('stage');
+    stage.classList.toggle('is-drawing', mode !== 'idle');
+    setActiveByValue(drawModeBtns, 'drawmode', mode);
+  }
+
+  function drawStroke(face, from, to){
+    const ctx = getContextForFace(face);
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = DRAW_STATE.size;
+    ctx.globalCompositeOperation = DRAW_STATE.mode === 'erase' ? 'destination-out' : 'source-over';
+    if (DRAW_STATE.mode !== 'erase'){
+      ctx.strokeStyle = DRAW_STATE.color;
+    }
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function setupDrawingCanvas(canvas, face){
+    let drawing = false;
+    let last = null;
+
+    function getPos(e){
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (DRAW_STATE.mode === 'idle') return;
+      drawing = true;
+      last = getPos(e);
+      canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drawing) return;
+      const pos = getPos(e);
+      drawStroke(face, last, pos);
+      last = pos;
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    function end(e){
+      if (!drawing) return;
+      drawing = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch {}
+      saveDrawingFace(face);
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+  }
+
+  setupDrawingCanvas(drawFrontCanvas, 'front');
+  setupDrawingCanvas(drawBackCanvas, 'back');
 
   /* ---------------------------------------------------------------------
      7. ADESIVOS
@@ -570,8 +795,10 @@
     setActiveByValue(paperColorBtns, 'color', letter.paperColor);
     setActiveByValue(textureBtns, 'texture', letter.texture);
     setActiveByValue(sizeBtns, 'size', letter.size);
+    setActiveByValue(paperShapeBtns, 'shape', letter.paperShape || 'romance');
     setActiveByValue(envelopeColorBtns, 'envcolor', letter.envelopeColor);
     applyPaper();
+    applyPaperShape();
     applySize();
 
     setActiveByValue(fontBtns, 'font', letter.font);
@@ -588,6 +815,10 @@
 
     applyPhoto();
     renderAllStickers();
+    resizeDrawingCanvases();
+    restoreDrawingFace('front');
+    restoreDrawingFace('back');
+    setDrawMode('idle');
   }
 
   function setActiveByValue(collection, attr, value){
@@ -606,6 +837,8 @@
     const letters = loadLetters();
     letter.textFrontHTML = textFront.innerHTML;
     letter.textBackHTML = textBack.innerHTML;
+    saveDrawingFace('front');
+    saveDrawingFace('back');
 
     if (editingId){
       const idx = letters.findIndex(l => l.id === editingId);
@@ -774,6 +1007,12 @@
 
     renderMyLetters();
     renderInbox();
+  window.addEventListener('resize', () => {
+    if (!editor.classList.contains('is-open')) return;
+    resizeDrawingCanvases();
+    restoreDrawingFace('front');
+    restoreDrawingFace('back');
+  });
     closeEditor();
     showToast(`Carta enviada para ${recipientId} ✦`);
   }

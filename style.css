@@ -537,6 +537,15 @@ input{ font-family: inherit; }
   user-select: none;
 }
 
+.card3d__draw{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .card3d__text{
   flex: 1;
   font-family: var(--font-hand);
@@ -548,6 +557,8 @@ input{ font-family: inherit; }
   white-space: pre-wrap;
   text-align: left;
   touch-action: none; /* girar tem prioridade sobre rolar o texto no mobile */
+  position: relative;
+  z-index: 3;
 }
 .card3d__text:empty::before{
   content: attr(data-placeholder);
@@ -555,6 +566,14 @@ input{ font-family: inherit; }
 }
 .card3d__text--back{ font-size: 18px; }
 .card3d__text[contenteditable="false"]{ cursor: inherit; }
+
+.stage.is-drawing .card3d__draw{
+  pointer-events: auto;
+  z-index: 6;
+}
+.stage.is-drawing .card3d__text{
+  pointer-events: none;
+}
 
 .card3d__seal{
   align-self: flex-end;
@@ -609,6 +628,28 @@ input{ font-family: inherit; }
 /* tamanhos da carta */
 .stage__scene.size--pequena{ max-width: 300px; }
 .stage__scene.size--grande{ max-width: 440px; }
+
+.paper-shape--romance .card3d__face,
+.paper-shape--romance .card3d__frame,
+.paper-shape--romance .card3d__draw{
+  border-radius: 30px 30px 40px 40px;
+}
+.paper-shape--classica .card3d__face,
+.paper-shape--classica .card3d__frame,
+.paper-shape--classica .card3d__draw{
+  border-radius: 22px;
+}
+.paper-shape--pergaminho .card3d__face,
+.paper-shape--pergaminho .card3d__frame,
+.paper-shape--pergaminho .card3d__draw{
+  border-radius: 18px 40px 20px 36px;
+}
+.paper-shape--carta .card3d__face,
+.paper-shape--carta .card3d__frame,
+.paper-shape--carta .card3d__draw{
+  border-radius: 16px;
+  clip-path: polygon(1.6% 0, 98.4% 0, 100% 2.2%, 100% 97.8%, 98.4% 100%, 1.6% 100%, 0 97.8%, 0 2.2%);
+}
 
 /* presets de estilo aplicados ao texto */
 .style--romantico .card3d__text{ font-family: var(--font-hand); }
@@ -754,6 +795,25 @@ input{ font-family: inherit; }
   transition: background .25s var(--ease), border-color .25s var(--ease);
 }
 .upload-btn:hover{ background: var(--blush); border-color: var(--ink); }
+
+.envelope-preview{
+  margin-top: 18px;
+  padding: 16px 14px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(140,106,106,.14);
+  background: var(--cream-2);
+  display: grid;
+  place-items: center;
+  gap: 10px;
+}
+.envelope--preview{
+  width: 180px;
+}
+.envelope-preview__label{
+  margin: 0;
+  font-size: .78rem;
+  color: var(--ink-soft);
+}
 
 /* ============================== ENVELOPE (reutilizável) ============================== */
 .envelope{
