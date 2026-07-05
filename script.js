@@ -1,1063 +1,516 @@
+/* ==========================================================================
+   ROMANTICWAVE — script.js
+   JavaScript puro, sem dependências externas.
+   Organização:
+     1. Referências ao DOM
+     2. Estado da carta em edição
+     3. Abrir / fechar editor
+     4. Rotação 3D (arrastar) + virar frente/verso
+     5. Personalização (papel, textura, tamanho, fonte, cor, alinhamento, estilo)
+     6. Adesivos (adicionar / arrastar / remover)
+     7. Foto (upload / remover)
+     8. Salvar carta + galeria (localStorage)
+     9. Inicialização
+   ========================================================================== */
+
 (() => {
-  const STORAGE_KEYS = {
-    draft: "romanticwave_draft_v1",
-    sent: "romanticwave_sent_v1",
-    inboxPrefix: "romanticwave_inbox_",
+  'use strict';
+
+  /* ---------------------------------------------------------------------
+     1. REFERÊNCIAS AO DOM
+  --------------------------------------------------------------------- */
+  const openEditorBtn  = document.getElementById('openEditorBtn');
+  const heroCreateBtn  = document.getElementById('heroCreateBtn');
+  const closeEditorBtn = document.getElementById('closeEditorBtn');
+  const editor         = document.getElementById('editor');
+
+  const flipBtn  = document.getElementById('flipBtn');
+  const saveBtn  = document.getElementById('saveBtn');
+
+  const stage   = document.getElementById('stage');
+  const card3d  = document.getElementById('card3d');
+  const stageScene = document.querySelector('.stage__scene');
+  const frameFront = document.getElementById('frameFront');
+  const frameBack  = document.getElementById('frameBack');
+  const textFront  = document.getElementById('textFront');
+  const textBack   = document.getElementById('textBack');
+
+  const photoSlot = document.getElementById('photoSlot');
+  const photoImg  = document.getElementById('photoImg');
+  const photoInput = document.getElementById('photoInput');
+  const removePhotoBtn = document.getElementById('removePhotoBtn');
+
+  const stickerLayerFront = document.getElementById('stickerLayerFront');
+  const stickerLayerBack  = document.getElementById('stickerLayerBack');
+
+  const tabs = document.querySelectorAll('.tab');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+
+  const paperColorBtns = document.querySelectorAll('#paperColors .swatch');
+  const textureBtns    = document.querySelectorAll('#textures .option');
+  const sizeBtns       = document.querySelectorAll('#sizes .option');
+  const fontBtns       = document.querySelectorAll('#fonts .option');
+  const textColorBtns  = document.querySelectorAll('#textColors .swatch');
+  const fontSizeSlider = document.getElementById('fontSize');
+  const alignBtns      = document.querySelectorAll('#aligns .option');
+  const styleBtns      = document.querySelectorAll('#styles .style-card');
+  const stickerPicker  = document.querySelectorAll('#stickerPicker .sticker-btn');
+
+  const galleryGrid  = document.getElementById('galleryGrid');
+  const galleryCount = document.getElementById('galleryCount');
+
+  const FONT_MAP = {
+    caveat: "'Caveat', cursive",
+    serif:  "'Cormorant Garamond', serif",
+    jost:   "'Jost', sans-serif"
   };
 
-  const PALETTES = {
-    cream: "var(--paper-cream)",
-    rose: "var(--paper-rose)",
-    lilac: "var(--paper-lilac)",
-    sand: "var(--paper-sand)",
-    slate: "var(--paper-slate)",
-  };
+  /* ---------------------------------------------------------------------
+     2. ESTADO DA CARTA EM EDIÇÃO
+  --------------------------------------------------------------------- */
+  let letter = createBlankLetter();
+  let isFlipped = false;
+  let editingId = null; // se estiver reeditando uma carta salva
 
-  const FONTS = {
-    handwriting: '"Segoe Script", "Snell Roundhand", "Brush Script MT", cursive',
-    serif: 'Georgia, "Times New Roman", serif',
-    elegant: '"Palatino Linotype", Palatino, "Book Antiqua", serif',
-    minimal: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
-    ink: '"Comic Sans MS", "Trebuchet MS", sans-serif',
-  };
-
-  const THEMES = {
-    romantic: {
-      paperColor: PALETTES.rose,
-      textColor: "#6f4a53",
-      texture: "soft",
-      fontFamily: "handwriting",
-      align: "left",
-    },
-    classic: {
-      paperColor: PALETTES.cream,
-      textColor: "#594744",
-      texture: "clean",
-      fontFamily: "serif",
-      align: "justify",
-    },
-    vintage: {
-      paperColor: PALETTES.sand,
-      textColor: "#6a553f",
-      texture: "vintage",
-      fontFamily: "elegant",
-      align: "left",
-    },
-    minimal: {
-      paperColor: PALETTES.slate,
-      textColor: "#4f4f4f",
-      texture: "clean",
-      fontFamily: "minimal",
-      align: "left",
-    },
-  };
-
-  const STICKERS = [
-    { type: "♡", label: "coração" },
-    { type: "✿", label: "flor" },
-    { type: "❀", label: "flor 2" },
-    { type: "☾", label: "lua" },
-    { type: "✦", label: "estrela" },
-    { type: "❦", label: "ornamento" },
-    { type: "✉", label: "envelope" },
-    { type: "∞", label: "infinito" },
-    { type: "♥", label: "amor" },
-  ];
-
-  const $ = (sel, ctx = document) => ctx.querySelector(sel);
-  const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
-  const clone = (obj) => JSON.parse(JSON.stringify(obj));
-
-  const els = {
-    appShell: $("#appShell"),
-    homeScreen: $("#homeScreen"),
-    editorScreen: $("#editorScreen"),
-    mailboxScreen: $("#mailboxScreen"),
-    menuDrawer: $("#menuDrawer"),
-    modal: $("#sendModal"),
-    toast: $("#toast"),
-
-    openMenuBtn: $("#openMenuBtn"),
-    closeMenuBtn: $("#closeMenuBtn"),
-    startNewLetterBtn: $("#startNewLetterBtn"),
-    resumeLastBtn: $("#resumeLastBtn"),
-    drawerNewBtn: $("#drawerNewBtn"),
-    drawerDraftBtn: $("#drawerDraftBtn"),
-    drawerInboxBtn: $("#drawerInboxBtn"),
-
-    openInboxBtn: $("#openInboxBtn"),
-    inboxIdInput: $("#inboxIdInput"),
-    inboxList: $("#inboxList"),
-
-    closeEditorBtn: $("#closeEditorBtn"),
-    saveDraftBtn: $("#saveDraftBtn"),
-    sendLetterBtn: $("#sendLetterBtn"),
-    frontViewBtn: $("#frontViewBtn"),
-    backViewBtn: $("#backViewBtn"),
-    backHomeFromMailboxBtn: $("#backHomeFromMailboxBtn"),
-
-    recipientId: $("#recipientId"),
-    recipientName: $("#recipientName"),
-    frontText: $("#frontText"),
-    backText: $("#backText"),
-    paperColor: $("#paperColor"),
-    paperTexture: $("#paperTexture"),
-    paperSize: $("#paperSize"),
-    fontFamily: $("#fontFamily"),
-    textColor: $("#textColor"),
-    textAlign: $("#textAlign"),
-    editorTitle: $("#editorTitle"),
-    previewHeading: $("#previewHeading"),
-
-    paperCard: $("#paperCard"),
-    paperFront: $("#paperFront"),
-    paperBack: $("#paperBack"),
-    paperRecipient: $("#paperRecipient"),
-    paperState: $("#paperState"),
-    frontPreviewText: $("#frontPreviewText"),
-    backPreviewText: $("#backPreviewText"),
-    frontElements: $("#frontElements"),
-    backElements: $("#backElements"),
-    backRecipientName: $("#backRecipientName"),
-    backRecipientId: $("#backRecipientId"),
-    frontSignatureLine: $("#frontSignatureLine"),
-
-    stickerPalette: $("#stickerPalette"),
-    photoInput: $("#photoInput"),
-
-    sendSummary: $("#sendSummary"),
-    sendIdInput: $("#sendIdInput"),
-    sendNoteInput: $("#sendNoteInput"),
-    closeSendModalBtn: $("#closeSendModalBtn"),
-    confirmSendBtn: $("#confirmSendBtn"),
-    copyShareBtn: $("#copyShareBtn"),
-    mailboxTitle: $("#mailboxTitle"),
-    mailboxList: $("#mailboxList"),
-  };
-
-  const defaultDraft = {
-    version: 1,
-    activeSide: "front",
-    recipientId: "ana_01",
-    recipientName: "Ana",
-    frontText: "Meu amor,\n\nEscrevo esta carta como quem deixa o coração repousar em papel.\nQue cada linha carregue a delicadeza do que sinto por você.\n\nCom carinho,\n[Seu nome]",
-    backText: "Com ternura,\n[Seu nome]",
-    paperColor: PALETTES.cream,
-    paperTexture: "soft",
-    paperSize: "medium",
-    fontFamily: "handwriting",
-    textColor: "#5f4a47",
-    textAlign: "left",
-    theme: "romantic",
-    note: "entregue com carinho",
-    elements: {
-      front: [],
-      back: [],
-    },
-    counters: { sticker: 0, photo: 0 },
-  };
-
-  const state = {
-    ui: {
-      menuOpen: false,
-      editorOpen: false,
-      mailboxOpen: false,
-      sendModalOpen: false,
-      selectedSide: "front",
-      activeInboxId: "",
-      selectedElementId: null,
-      drag: null,
-    },
-    draft: clone(defaultDraft),
-    sent: [],
-  };
-
-  function safeParse(raw, fallback) {
-    try {
-      if (!raw) return fallback;
-      return JSON.parse(raw);
-    } catch {
-      return fallback;
-    }
-  }
-
-  function loadAll() {
-    const savedDraft = safeParse(localStorage.getItem(STORAGE_KEYS.draft), null);
-    if (savedDraft && typeof savedDraft === "object") {
-      state.draft = normalizeDraft(savedDraft);
-    }
-    state.sent = safeParse(localStorage.getItem(STORAGE_KEYS.sent), []);
-    if (!Array.isArray(state.sent)) state.sent = [];
-  }
-
-  function normalizeDraft(input) {
-    const merged = clone(defaultDraft);
-    const source = input || {};
-    Object.assign(merged, source);
-    merged.elements = {
-      front: Array.isArray(source.elements?.front) ? source.elements.front : [],
-      back: Array.isArray(source.elements?.back) ? source.elements.back : [],
-    };
-    merged.counters = {
-      sticker: Number(source.counters?.sticker || 0),
-      photo: Number(source.counters?.photo || 0),
-    };
-    merged.activeSide = source.activeSide === "back" ? "back" : "front";
-    return merged;
-  }
-
-  function saveDraft() {
-    localStorage.setItem(STORAGE_KEYS.draft, JSON.stringify(state.draft));
-  }
-
-  function saveSent() {
-    localStorage.setItem(STORAGE_KEYS.sent, JSON.stringify(state.sent));
-  }
-
-  function setRootVars() {
-    document.documentElement.style.setProperty("--paper-color", state.draft.paperColor);
-    document.documentElement.style.setProperty("--paper-font", FONTS[state.draft.fontFamily] || FONTS.handwriting);
-    document.documentElement.style.setProperty("--text-color", state.draft.textColor);
-    document.documentElement.style.setProperty("--text-align", state.draft.textAlign);
-    document.documentElement.style.setProperty("--paper-size", state.draft.paperSize);
-
-    const sizeMap = {
-      small: ["540px", "650px"],
-      medium: ["620px", "760px"],
-      large: ["720px", "860px"],
-    };
-    const [w, h] = sizeMap[state.draft.paperSize] || sizeMap.medium;
-    document.documentElement.style.setProperty("--paper-width", w);
-    document.documentElement.style.setProperty("--paper-height", h);
-  }
-
-  function fillPalette() {
-    els.paperColor.innerHTML = `
-      <option value="${PALETTES.cream}">Creme</option>
-      <option value="${PALETTES.rose}">Rosa suave</option>
-      <option value="${PALETTES.lilac}">Lilás suave</option>
-      <option value="${PALETTES.sand}">Areia</option>
-      <option value="${PALETTES.slate}">Cinza quente</option>
-    `;
-  }
-
-  function renderStickerPalette() {
-    els.stickerPalette.innerHTML = STICKERS.map((item) => `
-      <button class="sticker-btn" type="button" data-sticker="${item.type}" title="${item.label}">${item.type}</button>
-    `).join("");
-  }
-
-  function elementHTML(element, side) {
-    const baseStyle = `
-      left:${element.x}px;
-      top:${element.y}px;
-      transform: translate(${element.rotate ? `0` : `0`}) rotate(${element.rotate || 0}deg) scale(${element.scale || 1});
-    `;
-
-    if (element.type === "photo") {
-      return `
-        <div class="element photo" data-id="${element.id}" data-kind="photo" style="${baseStyle}; width:${element.w}px; height:${element.h}px; background-image:url('${element.src}')">
-          <div class="element-actions">
-            <button class="element-btn" data-action="delete" type="button">×</button>
-          </div>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="element sticker" data-id="${element.id}" data-kind="sticker" style="${baseStyle}; font-size:${element.size || 1.35}rem;">
-        ${element.symbol}
-        <div class="element-actions">
-          <button class="element-btn" data-action="delete" type="button">×</button>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderElements(side) {
-    const list = state.draft.elements[side] || [];
-    return list.map((el) => elementHTML(el, side)).join("");
-  }
-
-  function currentSideText() {
-    return state.ui.selectedSide === "back" ? state.draft.backText : state.draft.frontText;
-  }
-
-  function renderPreview() {
-    setRootVars();
-
-    els.recipientId.value = state.draft.recipientId;
-    els.recipientName.value = state.draft.recipientName;
-    els.frontText.value = state.draft.frontText;
-    els.backText.value = state.draft.backText;
-    els.paperColor.value = state.draft.paperColor;
-    els.paperTexture.value = state.draft.paperTexture;
-    els.paperSize.value = state.draft.paperSize;
-    els.fontFamily.value = state.draft.fontFamily;
-    els.textColor.value = state.draft.textColor;
-    els.textAlign.value = state.draft.textAlign;
-
-    els.paperCard.dataset.texture = state.draft.paperTexture;
-    els.paperCard.dataset.size = state.draft.paperSize;
-    els.paperCard.dataset.side = state.ui.selectedSide;
-
-    els.paperRecipient.textContent = `Para: ${state.draft.recipientName || "destinatário"}`;
-    els.paperState.textContent = state.ui.selectedSide === "front" ? "Carta viva" : "Verso preparado";
-    els.backRecipientName.textContent = state.draft.recipientName || "Nome aqui";
-    els.backRecipientId.textContent = state.draft.recipientId || "ID aqui";
-
-    els.frontPreviewText.textContent = state.draft.frontText;
-    els.backPreviewText.textContent = state.draft.backText;
-    els.frontPreviewText.classList.toggle("is-empty", !state.draft.frontText.trim());
-    els.backPreviewText.classList.toggle("is-empty", !state.draft.backText.trim());
-
-    els.frontSignatureLine.style.display = state.draft.frontText.trim() ? "block" : "none";
-
-    els.frontElements.innerHTML = renderElements("front");
-    els.backElements.innerHTML = renderElements("back");
-
-    els.paperFront.classList.toggle("is-visible", state.ui.selectedSide === "front");
-    els.paperBack.classList.toggle("is-visible", state.ui.selectedSide === "back");
-    els.previewHeading.textContent = state.ui.selectedSide === "front" ? "Frente da carta" : "Verso da carta";
-
-    $$(".tab-btn").forEach((btn) => {
-      btn.classList.toggle("is-active", btn.dataset.side === state.ui.selectedSide);
-    });
-
-    $$(".chip").forEach((btn) => {
-      btn.classList.toggle("is-active", btn.dataset.theme === state.draft.theme);
-    });
-
-    saveDraft();
-  }
-
-  function openScreen(screen) {
-    [els.homeScreen, els.editorScreen, els.mailboxScreen].forEach((el) => el.classList.remove("is-active"));
-    screen.classList.add("is-active");
-  }
-
-  function closeAllOverlays() {
-    els.menuDrawer.classList.remove("is-open");
-    els.menuDrawer.setAttribute("aria-hidden", "true");
-    els.modal.classList.add("is-hidden");
-    els.modal.setAttribute("aria-hidden", "true");
-  }
-
-  function openMenu() {
-    state.ui.menuOpen = true;
-    els.menuDrawer.classList.add("is-open");
-    els.menuDrawer.setAttribute("aria-hidden", "false");
-  }
-
-  function closeMenu() {
-    state.ui.menuOpen = false;
-    els.menuDrawer.classList.remove("is-open");
-    els.menuDrawer.setAttribute("aria-hidden", "true");
-  }
-
-  function openEditor() {
-    state.ui.editorOpen = true;
-    state.ui.mailboxOpen = false;
-    closeAllOverlays();
-    openScreen(els.editorScreen);
-    els.editorScreen.setAttribute("aria-hidden", "false");
-    document.body.classList.add("editor-open");
-    renderPreview();
-    window.requestAnimationFrame(() => els.frontText.focus());
-  }
-
-  function closeEditor() {
-    state.ui.editorOpen = false;
-    document.body.classList.remove("editor-open");
-    openScreen(els.homeScreen);
-    els.editorScreen.setAttribute("aria-hidden", "true");
-    closeAllOverlays();
-    renderInboxOnHome();
-  }
-
-  function openMailbox(id) {
-    const cleanId = String(id || "").trim();
-    if (!cleanId) {
-      showToast("Digite um ID para abrir a caixa.");
-      return;
-    }
-    state.ui.activeInboxId = cleanId;
-    state.ui.mailboxOpen = true;
-    openScreen(els.mailboxScreen);
-    renderMailbox(cleanId);
-  }
-
-  function renderInboxOnHome() {
-    const currentId = String(els.inboxIdInput.value || "").trim();
-    if (!currentId) {
-      els.inboxList.innerHTML = `
-        <div class="inbox-card">
-          <div>
-            <strong>Sem ID ainda</strong>
-            <span>Digite um ID para testar o recebimento de cartas.</span>
-          </div>
-        </div>
-      `;
-      return;
-    }
-    const items = getInboxItems(currentId);
-    if (!items.length) {
-      els.inboxList.innerHTML = `
-        <div class="inbox-card">
-          <div>
-            <strong>Nenhuma carta encontrada</strong>
-            <span>O ID <strong>${escapeHTML(currentId)}</strong> ainda não recebeu cartas no navegador.</span>
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-    els.inboxList.innerHTML = items.slice(0, 3).map(renderMiniInboxItem).join("");
-  }
-
-  function getInboxItems(id) {
-    const cleanId = String(id || "").trim().toLowerCase();
-    return state.sent
-      .filter((entry) => String(entry.recipientId || "").trim().toLowerCase() === cleanId)
-      .sort((a, b) => b.createdAt - a.createdAt);
-  }
-
-  function renderMiniInboxItem(item) {
-    return `
-      <div class="inbox-card">
-        <div>
-          <strong>${escapeHTML(item.recipientName || item.recipientId || "Carta enviada")}</strong>
-          <span>${escapeHTML(item.note || "Sem recado")} • ${formatDate(item.createdAt)}</span>
-        </div>
-        <button class="secondary-btn" type="button" data-open-inbox="${escapeHTML(item.recipientId)}">Abrir</button>
-      </div>
-    `;
-  }
-
-  function renderMailbox(id) {
-    const items = getInboxItems(id);
-    els.mailboxTitle.textContent = `Cartas enviadas para ${id}`;
-    if (!items.length) {
-      els.mailboxList.innerHTML = `
-        <div class="mailbox-item">
-          <strong>Nenhuma carta encontrada</strong>
-          <p>Esse ID ainda não recebeu cartas salvas neste navegador.</p>
-        </div>
-      `;
-      return;
-    }
-
-    els.mailboxList.innerHTML = items.map((item) => `
-      <article class="mailbox-item">
-        <div class="mailbox-item-head">
-          <div>
-            <strong>${escapeHTML(item.title || "Carta romântica")}</strong>
-            <p>${escapeHTML(item.note || "sem recado")} • ${formatDate(item.createdAt)}</p>
-          </div>
-          <button class="secondary-btn" type="button" data-restore-card="${item.id}">Ver</button>
-        </div>
-        <p><strong>Remetente:</strong> ${escapeHTML(item.recipientName || "—")}<br />
-           <strong>ID:</strong> ${escapeHTML(item.recipientId || "—")}<br />
-           <strong>Resumo:</strong> ${escapeHTML(truncate(item.frontText, 130))}
-        </p>
-      </article>
-    `).join("");
-  }
-
-  function showSendModal() {
-    const payload = buildSharePayload();
-    els.sendSummary.innerHTML = `
-      <strong>Resumo do envio</strong><br />
-      Destinatário: <strong>${escapeHTML(payload.recipientName || "—")}</strong><br />
-      ID: <strong>${escapeHTML(payload.recipientId || "—")}</strong><br />
-      Lado atual: <strong>${payload.activeSide === "front" ? "Frente" : "Verso"}</strong><br />
-      Código local: <strong>${escapeHTML(payload.code)}</strong>
-    `;
-    els.sendIdInput.value = state.draft.recipientId || "";
-    els.sendNoteInput.value = state.draft.note || "entregue com carinho";
-    els.modal.classList.remove("is-hidden");
-    els.modal.setAttribute("aria-hidden", "false");
-    state.ui.sendModalOpen = true;
-    window.requestAnimationFrame(() => els.sendIdInput.focus());
-  }
-
-  function hideSendModal() {
-    els.modal.classList.add("is-hidden");
-    els.modal.setAttribute("aria-hidden", "true");
-    state.ui.sendModalOpen = false;
-  }
-
-  function buildSharePayload() {
-    const token = [
-      "RW",
-      slug(state.draft.recipientId || "id"),
-      Date.now().toString(36),
-      Math.random().toString(36).slice(2, 7),
-    ].join("-");
+  function createBlankLetter(){
     return {
-      code: token,
-      recipientId: state.draft.recipientId,
-      recipientName: state.draft.recipientName,
-      activeSide: state.draft.activeSide,
+      id: null,
+      paperColor: '#FBF6F0',
+      texture: 'liso',
+      size: 'media',
+      font: 'caveat',
+      textColor: '#4A3B3B',
+      fontSize: 20,
+      align: 'left',
+      style: 'romantico',
+      textFrontHTML: '',
+      textBackHTML: '',
+      photo: null,
+      stickersFront: [], // {emoji, x, y} em % relativo à carta
+      stickersBack: [],
+      createdAt: null
     };
   }
 
-  function createShareableRecord() {
-    const payload = buildSharePayload();
-    const record = {
-      id: payload.code,
-      title: state.draft.activeSide === "back" ? "Carta — verso" : "Carta romântica",
-      recipientId: state.draft.recipientId,
-      recipientName: state.draft.recipientName,
-      note: state.draft.note,
-      frontText: state.draft.frontText,
-      backText: state.draft.backText,
-      theme: state.draft.theme,
-      paperColor: state.draft.paperColor,
-      paperTexture: state.draft.paperTexture,
-      paperSize: state.draft.paperSize,
-      fontFamily: state.draft.fontFamily,
-      textColor: state.draft.textColor,
-      textAlign: state.draft.textAlign,
-      elements: clone(state.draft.elements),
-      createdAt: Date.now(),
-    };
-    return record;
+  /* ---------------------------------------------------------------------
+     3. ABRIR / FECHAR EDITOR
+  --------------------------------------------------------------------- */
+  function openEditor(existingLetter){
+    letter = existingLetter ? JSON.parse(JSON.stringify(existingLetter)) : createBlankLetter();
+    editingId = existingLetter ? existingLetter.id : null;
+    isFlipped = false;
+    card3d.classList.remove('is-flipped');
+    applyLetterToDOM();
+    editor.classList.add('is-open');
+    editor.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
   }
 
-  function confirmSend() {
-    const newRecipientId = String(els.sendIdInput.value || state.draft.recipientId || "").trim();
-    if (!newRecipientId) {
-      showToast("Digite um ID válido para enviar.");
+  function closeEditor(){
+    editor.classList.remove('is-open');
+    editor.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  openEditorBtn.addEventListener('click', () => openEditor(null));
+  heroCreateBtn.addEventListener('click', () => openEditor(null));
+  closeEditorBtn.addEventListener('click', closeEditor);
+  editor.addEventListener('click', (e) => {
+    if (e.target === editor) closeEditor(); // clique fora do painel fecha
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && editor.classList.contains('is-open')) closeEditor();
+  });
+
+  /* ---------------------------------------------------------------------
+     4. ROTAÇÃO 3D (ARRASTAR) + VIRAR FRENTE/VERSO
+  --------------------------------------------------------------------- */
+  let dragging = false;
+  let startX = 0, startY = 0;
+  let baseRotY = -10, baseRotX = 6; // rotação de "descanso" (efeito objeto real)
+  let currentRotY = baseRotY, currentRotX = baseRotX;
+
+  function setCardTransform(rotX, rotY){
+    card3d.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+  }
+
+  stageScene.addEventListener('pointerdown', (e) => {
+    // não iniciar arraste se o clique for em um adesivo ou no texto editável
+    if (e.target.closest('.sticker') || e.target.isContentEditable) return;
+    dragging = true;
+    card3d.classList.add('is-dragging');
+    startX = e.clientX;
+    startY = e.clientY;
+    stageScene.setPointerCapture(e.pointerId);
+  });
+
+  stageScene.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    currentRotY = baseRotY + dx * 0.4 + (isFlipped ? 180 : 0);
+    currentRotX = baseRotX - dy * 0.25;
+    currentRotX = Math.max(-25, Math.min(25, currentRotX));
+    setCardTransform(currentRotX, currentRotY);
+  });
+
+  function endDrag(){
+    if (!dragging) return;
+    dragging = false;
+    card3d.classList.remove('is-dragging');
+    // volta suavemente para o repouso, preservando o lado atual
+    baseRotY = -10;
+    baseRotX = 6;
+    setCardTransform(baseRotX, isFlipped ? baseRotY + 180 : baseRotY);
+  }
+  stageScene.addEventListener('pointerup', endDrag);
+  stageScene.addEventListener('pointerleave', endDrag);
+
+  function flipCard(){
+    isFlipped = !isFlipped;
+    setCardTransform(baseRotX, isFlipped ? baseRotY + 180 : baseRotY);
+  }
+  flipBtn.addEventListener('click', flipCard);
+
+  // define transform inicial
+  setCardTransform(baseRotX, baseRotY);
+
+  /* ---------------------------------------------------------------------
+     5. PERSONALIZAÇÃO
+  --------------------------------------------------------------------- */
+
+  // --- abas ---
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('is-active'));
+      tabPanels.forEach(p => p.classList.remove('is-active'));
+      tab.classList.add('is-active');
+      document.querySelector(`.tab-panel[data-panel="${tab.dataset.tab}"]`).classList.add('is-active');
+    });
+  });
+
+  // --- cor do papel ---
+  paperColorBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      letter.paperColor = btn.dataset.color;
+      setActive(paperColorBtns, btn);
+      applyPaper();
+    });
+  });
+
+  // --- textura ---
+  textureBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      letter.texture = btn.dataset.texture;
+      setActive(textureBtns, btn);
+      applyPaper();
+    });
+  });
+
+  // --- tamanho da carta ---
+  sizeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      letter.size = btn.dataset.size;
+      setActive(sizeBtns, btn);
+      applySize();
+    });
+  });
+
+  // --- fonte ---
+  fontBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      letter.font = btn.dataset.font;
+      setActive(fontBtns, btn);
+      applyTextStyle();
+    });
+  });
+
+  // --- cor do texto ---
+  textColorBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      letter.textColor = btn.dataset.color;
+      setActive(textColorBtns, btn);
+      applyTextStyle();
+    });
+  });
+
+  // --- tamanho do texto ---
+  fontSizeSlider.addEventListener('input', () => {
+    letter.fontSize = Number(fontSizeSlider.value);
+    applyTextStyle();
+  });
+
+  // --- alinhamento ---
+  alignBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      letter.align = btn.dataset.align;
+      setActive(alignBtns, btn);
+      applyTextStyle();
+    });
+  });
+
+  // --- estilo geral (preset) ---
+  styleBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      letter.style = btn.dataset.style;
+      setActive(styleBtns, btn);
+      applyStylePreset();
+    });
+  });
+
+  function setActive(collection, active){
+    collection.forEach(el => el.classList.remove('is-active'));
+    active.classList.add('is-active');
+  }
+
+  function applyPaper(){
+    [frameFront, frameBack].forEach(frame => {
+      frame.parentElement.style.backgroundColor = letter.paperColor;
+      frame.parentElement.classList.remove('paper--liso','paper--linho','paper--kraft','paper--vintage');
+      frame.parentElement.classList.add(`paper--${letter.texture}`);
+    });
+  }
+
+  function applySize(){
+    stageScene.classList.remove('size--pequena','size--grande');
+    if (letter.size === 'pequena') stageScene.classList.add('size--pequena');
+    if (letter.size === 'grande') stageScene.classList.add('size--grande');
+  }
+
+  function applyTextStyle(){
+    [textFront, textBack].forEach(el => {
+      el.style.fontFamily = FONT_MAP[letter.font];
+      el.style.color = letter.textColor;
+      el.style.textAlign = letter.align;
+    });
+    textFront.style.fontSize = letter.fontSize + 'px';
+    textBack.style.fontSize = Math.max(14, letter.fontSize - 2) + 'px';
+  }
+
+  function applyStylePreset(){
+    const stage3d = document.getElementById('stage');
+    stage3d.classList.remove('style--romantico','style--classico','style--vintage','style--minimalista');
+    stage3d.classList.add(`style--${letter.style}`);
+  }
+
+  /* ---------------------------------------------------------------------
+     6. ADESIVOS
+  --------------------------------------------------------------------- */
+  stickerPicker.forEach(btn => {
+    btn.addEventListener('click', () => addSticker(btn.dataset.sticker));
+  });
+
+  function addSticker(emoji){
+    const layer = isFlipped ? stickerLayerBack : stickerLayerFront;
+    const list = isFlipped ? letter.stickersBack : letter.stickersFront;
+    const data = { emoji, x: 50, y: 50 };
+    list.push(data);
+    renderSticker(layer, data, list);
+  }
+
+  function renderSticker(layer, data, list){
+    const el = document.createElement('span');
+    el.className = 'sticker';
+    el.textContent = data.emoji;
+    el.style.left = data.x + '%';
+    el.style.top = data.y + '%';
+
+    let dragging = false;
+    el.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      el.setPointerCapture(e.pointerId);
+      e.stopPropagation();
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const rect = layer.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      data.x = Math.max(0, Math.min(100, x));
+      data.y = Math.max(0, Math.min(100, y));
+      el.style.left = data.x + '%';
+      el.style.top = data.y + '%';
+      e.stopPropagation();
+    });
+    el.addEventListener('pointerup', (e) => { dragging = false; e.stopPropagation(); });
+    el.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      const idx = list.indexOf(data);
+      if (idx > -1) list.splice(idx, 1);
+      el.remove();
+    });
+
+    layer.appendChild(el);
+  }
+
+  function renderAllStickers(){
+    stickerLayerFront.innerHTML = '';
+    stickerLayerBack.innerHTML = '';
+    letter.stickersFront.forEach(d => renderSticker(stickerLayerFront, d, letter.stickersFront));
+    letter.stickersBack.forEach(d => renderSticker(stickerLayerBack, d, letter.stickersBack));
+  }
+
+  /* ---------------------------------------------------------------------
+     7. FOTO
+  --------------------------------------------------------------------- */
+  photoInput.addEventListener('change', () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      letter.photo = e.target.result;
+      applyPhoto();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  removePhotoBtn.addEventListener('click', () => {
+    letter.photo = null;
+    applyPhoto();
+  });
+
+  function applyPhoto(){
+    if (letter.photo){
+      photoImg.src = letter.photo;
+      photoSlot.hidden = false;
+    } else {
+      photoImg.src = '';
+      photoSlot.hidden = true;
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+     TEXTO (contenteditable) — mantém estado sincronizado
+  --------------------------------------------------------------------- */
+  textFront.addEventListener('input', () => { letter.textFrontHTML = textFront.innerHTML; });
+  textBack.addEventListener('input',  () => { letter.textBackHTML  = textBack.innerHTML;  });
+
+  /* ---------------------------------------------------------------------
+     APLICAR TODO O ESTADO NO DOM (usado ao abrir/reabrir o editor)
+  --------------------------------------------------------------------- */
+  function applyLetterToDOM(){
+    // papel
+    setActiveByValue(paperColorBtns, 'color', letter.paperColor);
+    setActiveByValue(textureBtns, 'texture', letter.texture);
+    setActiveByValue(sizeBtns, 'size', letter.size);
+    applyPaper();
+    applySize();
+
+    // texto
+    setActiveByValue(fontBtns, 'font', letter.font);
+    setActiveByValue(textColorBtns, 'color', letter.textColor);
+    setActiveByValue(alignBtns, 'align', letter.align);
+    fontSizeSlider.value = letter.fontSize;
+    applyTextStyle();
+
+    // estilo
+    setActiveByValue(styleBtns, 'style', letter.style);
+    applyStylePreset();
+
+    // conteúdo
+    textFront.innerHTML = letter.textFrontHTML || '';
+    textBack.innerHTML = letter.textBackHTML || '';
+
+    // foto
+    applyPhoto();
+
+    // adesivos
+    renderAllStickers();
+  }
+
+  function setActiveByValue(collection, attr, value){
+    collection.forEach(el => {
+      el.classList.toggle('is-active', el.dataset[attr] === value);
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+     8. SALVAR CARTA + GALERIA (localStorage)
+  --------------------------------------------------------------------- */
+  const STORAGE_KEY = 'romanticwave_letters';
+
+  function loadLetters(){
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    } catch {
+      return [];
+    }
+  }
+
+  function persistLetters(letters){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(letters));
+  }
+
+  function saveLetter(){
+    const letters = loadLetters();
+    letter.textFrontHTML = textFront.innerHTML;
+    letter.textBackHTML = textBack.innerHTML;
+
+    if (editingId){
+      const idx = letters.findIndex(l => l.id === editingId);
+      letter.id = editingId;
+      letter.createdAt = letters[idx] ? letters[idx].createdAt : Date.now();
+      if (idx > -1) letters[idx] = letter; else letters.push(letter);
+    } else {
+      letter.id = 'letter_' + Date.now();
+      letter.createdAt = Date.now();
+      editingId = letter.id;
+      letters.push(letter);
+    }
+
+    persistLetters(letters);
+    renderGallery();
+    flashSaved();
+  }
+
+  function flashSaved(){
+    const original = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<span class="icon-btn__glyph">✓</span> Salvo';
+    setTimeout(() => { saveBtn.innerHTML = original; }, 1400);
+  }
+
+  saveBtn.addEventListener('click', saveLetter);
+
+  function renderGallery(){
+    const letters = loadLetters().sort((a, b) => b.createdAt - a.createdAt);
+    galleryCount.textContent = `${letters.length} salva${letters.length === 1 ? '' : 's'}`;
+
+    if (letters.length === 0){
+      galleryGrid.innerHTML = `<div class="gallery__empty">Nenhuma carta ainda. Clique em “+” e escreva a primeira.</div>`;
       return;
     }
 
-    state.draft.recipientId = newRecipientId;
-    state.draft.recipientName = String(els.recipientName.value || state.draft.recipientName || "").trim() || newRecipientId;
-    state.draft.note = String(els.sendNoteInput.value || "entregue com carinho").trim();
+    galleryGrid.innerHTML = '';
+    letters.forEach(l => {
+      const card = document.createElement('button');
+      card.className = 'mini-card';
+      card.style.backgroundColor = l.paperColor;
+      card.style.textAlign = 'left';
+      card.style.border = 'none';
 
-    const record = createShareableRecord();
-    state.sent.unshift(record);
-    saveSent();
+      const preview = document.createElement('div');
+      preview.className = 'mini-card__preview';
+      preview.style.fontFamily = FONT_MAP[l.font] || FONT_MAP.caveat;
+      preview.style.color = l.textColor;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = l.textFrontHTML || '';
+      preview.textContent = tmp.textContent || 'Carta em branco';
 
-    const inboxKey = STORAGE_KEYS.inboxPrefix + slug(newRecipientId);
-    const inboxPayload = safeParse(localStorage.getItem(inboxKey), []);
-    inboxPayload.unshift(record);
-    localStorage.setItem(inboxKey, JSON.stringify(inboxPayload.slice(0, 20)));
+      const date = document.createElement('div');
+      date.className = 'mini-card__date';
+      date.textContent = new Date(l.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 
-    const link = buildShareLink(record);
-    navigator.clipboard?.writeText(link).catch(() => {});
-    hideSendModal();
-    showToast(`Carta enviada para ${newRecipientId}. Link copiado.`);
-    renderInboxOnHome();
-    openMailbox(newRecipientId);
-  }
-
-  function buildShareLink(record) {
-    const payload = btoa(unescape(encodeURIComponent(JSON.stringify({
-      id: record.id,
-      recipientId: record.recipientId,
-      recipientName: record.recipientName,
-      note: record.note,
-      frontText: record.frontText,
-      backText: record.backText,
-      theme: record.theme,
-      paperColor: record.paperColor,
-      paperTexture: record.paperTexture,
-      paperSize: record.paperSize,
-      fontFamily: record.fontFamily,
-      textColor: record.textColor,
-      textAlign: record.textAlign,
-      elements: record.elements,
-      createdAt: record.createdAt,
-    }))));
-    return `${location.origin}${location.pathname}?letter=${payload}`;
-  }
-
-  function openSharedLetter() {
-    const params = new URLSearchParams(location.search);
-    const payload = params.get("letter");
-    if (!payload) return false;
-    try {
-      const data = JSON.parse(decodeURIComponent(escape(atob(payload))));
-      state.draft = normalizeDraft({
-        ...defaultDraft,
-        ...data,
-        elements: data.elements || { front: [], back: [] },
-      });
-      state.draft.activeSide = "front";
-      openEditor();
-      showToast("Carta importada do link compartilhado.");
-      return true;
-    } catch (error) {
-      console.warn(error);
-      return false;
-    }
-  }
-
-  function addSticker(symbol) {
-    const side = state.ui.selectedSide;
-    const list = state.draft.elements[side];
-    const id = `sticker_${Date.now()}_${state.draft.counters.sticker++}`;
-    list.push({
-      id,
-      type: "sticker",
-      symbol,
-      x: 42 + Math.random() * 180,
-      y: 70 + Math.random() * 220,
-      rotate: Math.round((Math.random() * 24) - 12),
-      scale: 1,
-      size: 1.35 + Math.random() * 0.15,
-    });
-    renderPreview();
-    saveDraft();
-  }
-
-  function addPhoto(src) {
-    const side = state.ui.selectedSide;
-    const list = state.draft.elements[side];
-    const id = `photo_${Date.now()}_${state.draft.counters.photo++}`;
-    list.push({
-      id,
-      type: "photo",
-      src,
-      x: 72 + Math.random() * 160,
-      y: 110 + Math.random() * 190,
-      rotate: Math.round((Math.random() * 10) - 5),
-      scale: 1,
-      w: 130,
-      h: 130,
-    });
-    renderPreview();
-    saveDraft();
-  }
-
-  function deleteElement(id) {
-    const side = state.ui.selectedSide;
-    const list = state.draft.elements[side];
-    const idx = list.findIndex((el) => el.id === id);
-    if (idx >= 0) {
-      list.splice(idx, 1);
-      state.ui.selectedElementId = null;
-      renderPreview();
-      saveDraft();
-    }
-  }
-
-  function getSideElements(side) {
-    return side === "back" ? els.backElements : els.frontElements;
-  }
-
-  function findElementById(id) {
-    const side = state.ui.selectedSide;
-    const list = state.draft.elements[side] || [];
-    return list.find((el) => el.id === id);
-  }
-
-  function bindDrag(container, side) {
-    container.addEventListener("pointerdown", (event) => {
-      const card = event.target.closest(".element");
-      if (!card) return;
-
-      const id = card.dataset.id;
-      const element = (state.draft.elements[side] || []).find((el) => el.id === id);
-      if (!element) return;
-
-      const actionBtn = event.target.closest("[data-action='delete']");
-      if (actionBtn) {
-        event.preventDefault();
-        event.stopPropagation();
-        deleteElement(id);
-        return;
-      }
-
-      state.ui.selectedElementId = id;
-      $$(`.element`, container).forEach((node) => node.classList.toggle("is-selected", node.dataset.id === id));
-
-      const cardRect = $("#paperCard").getBoundingClientRect();
-      const startX = event.clientX;
-      const startY = event.clientY;
-      const startLeft = element.x;
-      const startTop = element.y;
-
-      state.ui.drag = {
-        id,
-        side,
-        pointerId: event.pointerId,
-        startX,
-        startY,
-        startLeft,
-        startTop,
-        containerRect: cardRect,
-      };
-
-      card.setPointerCapture(event.pointerId);
+      card.appendChild(preview);
+      card.appendChild(date);
+      card.addEventListener('click', () => openEditor(l));
+      galleryGrid.appendChild(card);
     });
   }
 
-  function updateDraggedElement(clientX, clientY) {
-    const drag = state.ui.drag;
-    if (!drag) return;
-    const card = $("#paperCard").getBoundingClientRect();
-    const el = findElementById(drag.id);
-    if (!el) return;
+  /* ---------------------------------------------------------------------
+     9. INICIALIZAÇÃO
+  --------------------------------------------------------------------- */
+  applyLetterToDOM();
+  renderGallery();
 
-    const dx = clientX - drag.startX;
-    const dy = clientY - drag.startY;
-    const maxX = card.width - 120;
-    const maxY = card.height - 120;
-
-    el.x = clamp(drag.startLeft + dx, 8, Math.max(8, maxX));
-    el.y = clamp(drag.startTop + dy, 8, Math.max(8, maxY));
-
-    renderPreview();
-  }
-
-  function stopDrag() {
-    if (!state.ui.drag) return;
-    state.ui.drag = null;
-    saveDraft();
-  }
-
-  function updateElementSelectionClasses() {
-    const selectedId = state.ui.selectedElementId;
-    [els.frontElements, els.backElements].forEach((container) => {
-      $$(".element", container).forEach((node) => {
-        node.classList.toggle("is-selected", node.dataset.id === selectedId);
-      });
-    });
-  }
-
-  function applyTheme(name) {
-    const theme = THEMES[name];
-    if (!theme) return;
-    state.draft.theme = name;
-    state.draft.paperColor = theme.paperColor;
-    state.draft.textColor = theme.textColor;
-    state.draft.paperTexture = theme.texture;
-    state.draft.fontFamily = theme.fontFamily;
-    state.draft.textAlign = theme.align;
-    renderPreview();
-  }
-
-  function hydrateFromInputs() {
-    state.draft.recipientId = String(els.recipientId.value || "").trim();
-    state.draft.recipientName = String(els.recipientName.value || "").trim();
-    state.draft.frontText = els.frontText.value;
-    state.draft.backText = els.backText.value;
-    state.draft.paperColor = els.paperColor.value;
-    state.draft.paperTexture = els.paperTexture.value;
-    state.draft.paperSize = els.paperSize.value;
-    state.draft.fontFamily = els.fontFamily.value;
-    state.draft.textColor = els.textColor.value;
-    state.draft.textAlign = els.textAlign.value;
-  }
-
-  function restoreLastDraft() {
-    loadAll();
-    renderPreview();
-    showToast("Rascunho restaurado.");
-  }
-
-  function initInputs() {
-    fillPalette();
-    renderStickerPalette();
-    els.paperTexture.value = state.draft.paperTexture;
-    els.paperSize.value = state.draft.paperSize;
-    els.fontFamily.value = state.draft.fontFamily;
-    els.textAlign.value = state.draft.textAlign;
-    els.textColor.value = state.draft.textColor;
-    els.sendNoteInput.value = state.draft.note || "entregue com carinho";
-  }
-
-  function bindEvents() {
-    els.openMenuBtn.addEventListener("click", () => {
-      if (state.ui.menuOpen) closeMenu(); else openMenu();
-    });
-    els.closeMenuBtn.addEventListener("click", closeMenu);
-
-    els.startNewLetterBtn.addEventListener("click", () => {
-      state.draft = clone(defaultDraft);
-      state.ui.selectedSide = "front";
-      state.ui.selectedElementId = null;
-      state.draft.note = "entregue com carinho";
-      openEditor();
-    });
-
-    els.resumeLastBtn.addEventListener("click", () => {
-      restoreLastDraft();
-      openEditor();
-    });
-
-    els.drawerNewBtn.addEventListener("click", () => {
-      state.draft = clone(defaultDraft);
-      state.ui.selectedSide = "front";
-      state.ui.selectedElementId = null;
-      state.draft.note = "entregue com carinho";
-      closeMenu();
-      openEditor();
-    });
-
-    els.drawerDraftBtn.addEventListener("click", () => {
-      closeMenu();
-      restoreLastDraft();
-      openEditor();
-    });
-
-    els.drawerInboxBtn.addEventListener("click", () => {
-      closeMenu();
-      const val = String(els.inboxIdInput.value || els.recipientId.value || "").trim();
-      if (val) openMailbox(val);
-      else showToast("Digite um ID na caixa de teste.");
-    });
-
-    els.openInboxBtn.addEventListener("click", () => openMailbox(els.inboxIdInput.value));
-    els.backHomeFromMailboxBtn.addEventListener("click", () => {
-      openScreen(els.homeScreen);
-      renderInboxOnHome();
-    });
-
-    els.closeEditorBtn.addEventListener("click", () => closeEditor());
-
-    els.saveDraftBtn.addEventListener("click", () => {
-      hydrateFromInputs();
-      saveDraft();
-      showToast("Rascunho salvo.");
-    });
-
-    els.sendLetterBtn.addEventListener("click", () => {
-      hydrateFromInputs();
-      showSendModal();
-      renderPreview();
-    });
-
-    els.closeSendModalBtn.addEventListener("click", hideSendModal);
-    els.confirmSendBtn.addEventListener("click", () => {
-      hydrateFromInputs();
-      confirmSend();
-    });
-
-    els.copyShareBtn.addEventListener("click", async () => {
-      hydrateFromInputs();
-      const rec = createShareableRecord();
-      const link = buildShareLink(rec);
-      try {
-        await navigator.clipboard.writeText(link);
-        showToast("Link copiado.");
-      } catch {
-        showToast("Não foi possível copiar automaticamente.");
-      }
-    });
-
-    els.frontViewBtn.addEventListener("click", () => {
-      state.ui.selectedSide = "front";
-      renderPreview();
-    });
-
-    els.backViewBtn.addEventListener("click", () => {
-      state.ui.selectedSide = "back";
-      renderPreview();
-    });
-
-    els.recipientId.addEventListener("input", () => {
-      hydrateFromInputs();
-      renderPreview();
-    });
-    els.recipientName.addEventListener("input", () => {
-      hydrateFromInputs();
-      renderPreview();
-    });
-    els.frontText.addEventListener("input", () => {
-      state.draft.frontText = els.frontText.value;
-      renderPreview();
-    });
-    els.backText.addEventListener("input", () => {
-      state.draft.backText = els.backText.value;
-      renderPreview();
-    });
-    els.paperColor.addEventListener("change", () => {
-      state.draft.paperColor = els.paperColor.value;
-      state.draft.theme = "custom";
-      renderPreview();
-    });
-    els.paperTexture.addEventListener("change", () => {
-      state.draft.paperTexture = els.paperTexture.value;
-      renderPreview();
-    });
-    els.paperSize.addEventListener("change", () => {
-      state.draft.paperSize = els.paperSize.value;
-      renderPreview();
-    });
-    els.fontFamily.addEventListener("change", () => {
-      state.draft.fontFamily = els.fontFamily.value;
-      renderPreview();
-    });
-    els.textColor.addEventListener("input", () => {
-      state.draft.textColor = els.textColor.value;
-      state.draft.theme = "custom";
-      renderPreview();
-    });
-    els.textAlign.addEventListener("change", () => {
-      state.draft.textAlign = els.textAlign.value;
-      renderPreview();
-    });
-
-    $$(".chip").forEach((btn) => {
-      btn.addEventListener("click", () => applyTheme(btn.dataset.theme));
-    });
-
-    $$(".tab-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        state.ui.selectedSide = btn.dataset.side;
-        renderPreview();
-      });
-    });
-
-    els.stickerPalette.addEventListener("click", (event) => {
-      const btn = event.target.closest("[data-sticker]");
-      if (!btn) return;
-      addSticker(btn.dataset.sticker);
-    });
-
-    els.photoInput.addEventListener("change", () => {
-      const file = els.photoInput.files && els.photoInput.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        addPhoto(String(reader.result || ""));
-        els.photoInput.value = "";
-        showToast("Foto adicionada à carta.");
-      };
-      reader.readAsDataURL(file);
-    });
-
-    ["frontElements", "backElements"].forEach((key) => {
-      bindDrag(els[key], key === "frontElements" ? "front" : "back");
-    });
-
-    document.addEventListener("pointermove", (event) => {
-      if (!state.ui.drag) return;
-      updateDraggedElement(event.clientX, event.clientY);
-    });
-    document.addEventListener("pointerup", () => {
-      stopDrag();
-      updateElementSelectionClasses();
-    });
-    document.addEventListener("pointercancel", stopDrag);
-
-    document.addEventListener("click", (event) => {
-      const inboxBtn = event.target.closest("[data-open-inbox]");
-      if (inboxBtn) {
-        openMailbox(inboxBtn.dataset.openInbox);
-      }
-
-      const restoreBtn = event.target.closest("[data-restore-card]");
-      if (restoreBtn) {
-        const id = restoreBtn.dataset.restoreCard;
-        const item = state.sent.find((entry) => entry.id === id);
-        if (item) {
-          state.draft = normalizeDraft({
-            ...defaultDraft,
-            ...item,
-            activeSide: "front",
-          });
-          renderPreview();
-          openEditor();
-          showToast("Carta restaurada para edição.");
-        }
-      }
-
-      if (event.target === els.modal) hideSendModal();
-    });
-
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        if (state.ui.sendModalOpen) return hideSendModal();
-        if (state.ui.menuOpen) return closeMenu();
-        if (state.ui.editorOpen) return closeEditor();
-      }
-      if (event.ctrlKey && event.key === "Enter" && state.ui.editorOpen) {
-        hydrateFromInputs();
-        showSendModal();
-      }
-    });
-
-    els.inboxIdInput.addEventListener("input", renderInboxOnHome);
-  }
-
-  function formatDate(ts) {
-    return new Intl.DateTimeFormat("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(ts));
-  }
-
-  function truncate(text, max = 100) {
-    const str = String(text || "");
-    return str.length <= max ? str : str.slice(0, max - 1) + "…";
-  }
-
-  function slug(text) {
-    return String(text || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "");
-  }
-
-  function escapeHTML(str) {
-    return String(str || "").replace(/[&<>"']/g, (s) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    }[s]));
-  }
-
-  function clamp(v, min, max) {
-    return Math.min(Math.max(v, min), max);
-  }
-
-  let toastTimer = null;
-  function showToast(message) {
-    els.toast.textContent = message;
-    els.toast.classList.add("is-visible");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => els.toast.classList.remove("is-visible"), 2200);
-  }
-
-  function hydrateFromQuery() {
-    const params = new URLSearchParams(location.search);
-    const inbox = params.get("inbox");
-    if (inbox) {
-      els.inboxIdInput.value = inbox;
-      openMailbox(inbox);
-      return true;
-    }
-    return false;
-  }
-
-  function init() {
-    loadAll();
-    initInputs();
-    bindEvents();
-    renderPreview();
-    renderInboxOnHome();
-
-    const openedShared = openSharedLetter();
-    const openedInbox = openedShared ? true : hydrateFromQuery();
-
-    closeMenu();
-    closeAllOverlays();
-
-    if (!openedShared && !openedInbox) {
-      openScreen(els.homeScreen);
-    }
-  }
-
-  init();
 })();
