@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5ede6" />
+  <title>Romanticwave — Cartas Românticas</title>
+  <meta name="description" content="Crie cartas românticas personalizadas com visual elegante, minimalista e pronto para evoluir." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg-blur bg-blur-a"></div>
+  <div class="bg-blur bg-blur-b"></div>
+  <div class="bg-grid"></div>
+
+  <div class="app-shell" id="appShell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">RW</div>
+        <div class="brand-copy">
+          <h1>Romanticwave</h1>
+          <p>Cartas românticas com estética premium.</p>
+        </div>
+      </div>
+
+      <nav class="topbar-actions" aria-label="Ações principais">
+        <button class="icon-btn" id="openMenuBtn" type="button" aria-label="Abrir menu de cartas">
+          <span>+</span>
+        </button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- HOME -->
+      <section class="screen screen-home is-active" id="homeScreen" aria-label="Tela inicial">
+        <div class="hero card">
+          <div class="hero-copy">
+            <span class="eyebrow">Carta real • visual suave • envio por ID</span>
+            <h2>Uma experiência delicada para escrever, personalizar e enviar cartas com alma.</h2>
+            <p>
+              Crie cartas com aparência física, altere papel, fonte, alinhamento, adesivos e fotos, e teste o envio por ID sem sair do navegador.
+            </p>
+
+            <div class="hero-cta">
+              <button class="primary-btn" id="startNewLetterBtn" type="button">Criar carta</button>
+              <button class="secondary-btn" id="resumeLastBtn" type="button">Continuar rascunho</button>
+            </div>
+
+            <div class="hero-metrics" aria-label="Resumo do produto">
+              <article>
+                <strong>100%</strong>
+                <span>HTML, CSS e JS puro</span>
+              </article>
+              <article>
+                <strong>Tempo real</strong>
+                <span>Atualização imediata no papel</span>
+              </article>
+              <article>
+                <strong>Base pronta</strong>
+                <span>Frente, verso, fotos e stickers</span>
+              </article>
+            </div>
+          </div>
+
+          <div class="hero-stage" aria-hidden="true">
+            <div class="envelope-preview">
+              <div class="envelope-flap"></div>
+              <div class="letter-preview">
+                <div class="preview-line short"></div>
+                <div class="preview-line"></div>
+                <div class="preview-line"></div>
+                <div class="preview-line tiny"></div>
+                <div class="preview-seal"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <section class="section-grid">
+          <article class="mini-card">
+            <h3>Design premium</h3>
+            <p>Neutro, romântico e sofisticado, com sombras suaves e tipografia refinada.</p>
+          </article>
+          <article class="mini-card">
+            <h3>Editor fluido</h3>
+            <p>O papel responde em tempo real enquanto você altera cada detalhe.</p>
+          </article>
+          <article class="mini-card">
+            <h3>Pronto para crescer</h3>
+            <p>Estrutura preparada para envelope 3D, animação de envio e elementos soltos.</p>
+          </article>
+        </section>
+
+        <section class="inbox card">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Caixa de teste</span>
+              <h3>Abrir cartas por ID</h3>
+            </div>
+            <p class="muted">Teste o envio local usando um ID de destinatário.</p>
+          </div>
+
+          <div class="inbox-form">
+            <input id="inboxIdInput" type="text" placeholder="Digite um ID, ex.: ana_01" />
+            <button class="primary-btn" id="openInboxBtn" type="button">Abrir caixa</button>
+          </div>
+
+          <div class="inbox-list" id="inboxList" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <!-- MENU -->
+      <aside class="drawer" id="menuDrawer" aria-hidden="true" aria-label="Menu de cartas">
+        <div class="drawer-head">
+          <div>
+            <span class="eyebrow">Menu de cartas</span>
+            <h3>Escolha como começar</h3>
+          </div>
+          <button class="icon-btn icon-btn--small" id="closeMenuBtn" type="button" aria-label="Fechar menu">×</button>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="menu-card is-highlighted" id="drawerNewBtn" type="button">
+            <strong>Nova carta</strong>
+            <span>Abra o editor completo e personalize tudo.</span>
+          </button>
+          <button class="menu-card" id="drawerDraftBtn" type="button">
+            <strong>Rascunhos salvos</strong>
+            <span>Retome a última criação salva no navegador.</span>
+          </button>
+          <button class="menu-card" id="drawerInboxBtn" type="button">
+            <strong>Caixa por ID</strong>
+            <span>Visualize cartas enviadas para um destinatário.</span>
+          </button>
+        </div>
+
+        <div class="drawer-foot">
+          <p>
+            <strong>Romanticwave</strong> foi organizado para funcionar como uma base real de produto,
+            já pensando em futuro suporte a frente/verso, envelope 3D, fotos e animações de envio.
+          </p>
+        </div>
+      </aside>
+
+      <!-- EDITOR -->
+      <section class="screen screen-editor" id="editorScreen" aria-hidden="true" aria-label="Editor da carta">
+        <div class="editor-shell card">
+          <aside class="editor-sidebar">
+            <div class="sidebar-head">
+              <div>
+                <span class="eyebrow">Criar carta</span>
+                <h3 id="editorTitle">Nova carta romântica</h3>
+              </div>
+              <button class="icon-btn icon-btn--small close-editor" id="closeEditorBtn" type="button" aria-label="Fechar editor">×</button>
+            </div>
+
+            <div class="recipient-block">
+              <label for="recipientId">ID do destinatário</label>
+              <input id="recipientId" type="text" placeholder="ex.: ana_01" />
+              <label for="recipientName">Nome do destinatário</label>
+              <input id="recipientName" type="text" placeholder="ex.: Ana" />
+            </div>
+
+            <div class="editor-tabs" role="tablist" aria-label="Lado da carta">
+              <button class="tab-btn is-active" data-side="front" type="button">Frente</button>
+              <button class="tab-btn" data-side="back" type="button">Verso</button>
+            </div>
+
+            <div class="field">
+              <label for="frontText">Texto da frente</label>
+              <textarea id="frontText" rows="9" placeholder="Escreva a mensagem principal..."></textarea>
+            </div>
+
+            <div class="field">
+              <label for="backText">Texto do verso</label>
+              <textarea id="backText" rows="5" placeholder="Assinatura, recado final ou endereço..."></textarea>
+            </div>
+
+            <div class="control-grid">
+              <div class="field">
+                <label for="paperColor">Cor do papel</label>
+                <select id="paperColor"></select>
+              </div>
+              <div class="field">
+                <label for="paperTexture">Textura</label>
+                <select id="paperTexture">
+                  <option value="soft">Suave</option>
+                  <option value="linen">Linho</option>
+                  <option value="vintage">Vintage</option>
+                  <option value="clean">Limpa</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="paperSize">Tamanho</label>
+                <select id="paperSize">
+                  <option value="small">Pequena</option>
+                  <option value="medium" selected>Média</option>
+                  <option value="large">Grande</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="fontFamily">Fonte</label>
+                <select id="fontFamily">
+                  <option value="handwriting">Caligrafia</option>
+                  <option value="serif">Clássica</option>
+                  <option value="elegant">Elegante</option>
+                  <option value="minimal">Minimalista</option>
+                  <option value="ink">Tinta fina</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="textColor">Cor do texto</label>
+                <input id="textColor" type="color" value="#5f4a47" />
+              </div>
+              <div class="field">
+                <label for="textAlign">Alinhamento</label>
+                <select id="textAlign">
+                  <option value="left">Esquerda</option>
+                  <option value="center">Centro</option>
+                  <option value="right">Direita</option>
+                  <option value="justify">Justificado</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <button class="chip is-active" data-theme="romantic" type="button">Romântico</button>
+              <button class="chip" data-theme="classic" type="button">Clássico</button>
+              <button class="chip" data-theme="vintage" type="button">Vintage</button>
+              <button class="chip" data-theme="minimal" type="button">Minimalista</button>
+            </div>
+
+            <div class="insert-tools">
+              <div class="section-mini-head">
+                <span>Adesivos e elementos</span>
+                <p>Toque para inserir no papel.</p>
+              </div>
+              <div class="sticker-palette" id="stickerPalette" aria-label="Paleta de adesivos"></div>
+
+              <label class="upload-btn" for="photoInput">
+                <input id="photoInput" type="file" accept="image/*" hidden />
+                <span>Adicionar foto</span>
+              </label>
+            </div>
+
+            <div class="future-box">
+              <span>Base futura</span>
+              <p>Preparada para envelope 3D, arrastar e soltar, animação de envio, fotos e frente/verso.</p>
+            </div>
+
+            <div class="editor-actions">
+              <button class="secondary-btn" id="saveDraftBtn" type="button">Salvar rascunho</button>
+              <button class="primary-btn" id="sendLetterBtn" type="button">Salvar e enviar por ID</button>
+            </div>
+          </aside>
+
+          <section class="editor-preview">
+            <div class="preview-topbar">
+              <div class="preview-title">
+                <span class="eyebrow">Pré-visualização</span>
+                <h3 id="previewHeading">Frente da carta</h3>
+              </div>
+
+              <div class="preview-switches">
+                <button class="ghost-btn is-active" id="frontViewBtn" type="button">Frente</button>
+                <button class="ghost-btn" id="backViewBtn" type="button">Verso</button>
+              </div>
+            </div>
+
+            <div class="paper-frame">
+              <div class="paper-lights"></div>
+              <article class="paper" id="paperCard" aria-live="polite">
+                <div class="paper-ribbon"></div>
+                <div class="paper-topline">
+                  <span class="paper-pill" id="paperRecipient">Para: destinatário</span>
+                  <span class="paper-pill" id="paperState">Carta viva</span>
+                </div>
+
+                <div class="paper-surface">
+                  <div class="paper-side paper-side--front is-visible" id="paperFront">
+                    <div class="paper-watermark">Romanticwave</div>
+                    <div class="paper-text" id="frontPreviewText"></div>
+                    <div class="signature-line" id="frontSignatureLine"></div>
+                    <div class="paper-elements" id="frontElements"></div>
+                  </div>
+
+                  <div class="paper-side paper-side--back" id="paperBack">
+                    <div class="paper-watermark">Verso</div>
+                    <div class="back-layout">
+                      <div class="back-address">
+                        <span class="back-label">Destinatário</span>
+                        <strong id="backRecipientName">Nome aqui</strong>
+                        <span id="backRecipientId">ID aqui</span>
+                      </div>
+                      <div class="back-note">
+                        <div class="back-note-title">Última linha</div>
+                        <div class="paper-text paper-text--back" id="backPreviewText"></div>
+                      </div>
+                    </div>
+                    <div class="paper-elements" id="backElements"></div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- RECEIVED / OUTBOX -->
+      <section class="screen screen-mailbox" id="mailboxScreen" aria-hidden="true" aria-label="Caixa de cartas">
+        <div class="mailbox card">
+          <div class="mailbox-head">
+            <div>
+              <span class="eyebrow">Caixa por ID</span>
+              <h3 id="mailboxTitle">Nenhum ID selecionado</h3>
+            </div>
+            <button class="secondary-btn" id="backHomeFromMailboxBtn" type="button">Voltar</button>
+          </div>
+
+          <div class="mailbox-list" id="mailboxList"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal is-hidden" id="sendModal" aria-hidden="true">
+    <div class="modal-card card">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Enviar carta</span>
+          <h3>Teste de envio por ID</h3>
+        </div>
+        <button class="icon-btn icon-btn--small" id="closeSendModalBtn" type="button" aria-label="Fechar modal">×</button>
+      </div>
+
+      <div class="field">
+        <label for="sendIdInput">ID final do destinatário</label>
+        <input id="sendIdInput" type="text" placeholder="ex.: ana_01" />
+      </div>
+
+      <div class="field">
+        <label for="sendNoteInput">Recado do envio</label>
+        <input id="sendNoteInput" type="text" placeholder="ex.: entregue com carinho" />
+      </div>
+
+      <div class="send-summary" id="sendSummary"></div>
+
+      <div class="modal-actions">
+        <button class="secondary-btn" id="copyShareBtn" type="button">Copiar código</button>
+        <button class="primary-btn" id="confirmSendBtn" type="button">Salvar e enviar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
