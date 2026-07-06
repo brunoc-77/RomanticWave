@@ -70,6 +70,49 @@
     toastTimer = setTimeout(() => toastEl.classList.remove('is-visible'), 2600);
   }
 
+  /* ---------------------------------------------------------------------
+     1b. BACKEND REAL (opcional) — Firebase Firestore
+     ---------------------------------------------------------------------
+     Preencha FIREBASE_CONFIG com as chaves do SEU projeto (grátis) para
+     que o envio funcione de verdade entre pessoas em aparelhos
+     diferentes. Sem preencher, o app continua funcionando sozinho —
+     só que a "entrega" fica presa ao mesmo navegador (modo local).
+
+     Como conseguir as chaves (grátis, ~5 minutos):
+       1. abra https://console.firebase.google.com e crie um projeto
+       2. no menu, vá em "Compilação" › "Firestore Database" › "Criar
+          banco de dados" › escolha "Iniciar no modo de teste"
+       3. em "Configurações do projeto" (ícone de engrenagem) › role até
+          "Seus aplicativos" › clique no ícone </> (Web) › registre um
+          app (não precisa de Hosting) › copie o objeto "firebaseConfig"
+       4. cole os valores copiados nas chaves abaixo
+       5. suba o arquivo de novo pro GitHub Pages — pronto, envio real
+  --------------------------------------------------------------------- */
+  const FIREBASE_CONFIG = {
+    apiKey: "COLE_AQUI",
+    authDomain: "COLE_AQUI",
+    projectId: "COLE_AQUI",
+    storageBucket: "COLE_AQUI",
+    messagingSenderId: "COLE_AQUI",
+    appId: "COLE_AQUI"
+  };
+
+  const firebaseReady = !!(
+    window.firebase &&
+    FIREBASE_CONFIG.apiKey &&
+    FIREBASE_CONFIG.apiKey !== 'COLE_AQUI'
+  );
+
+  let db = null;
+  if (firebaseReady){
+    try {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore();
+    } catch (err) {
+      console.error('Falha ao iniciar o Firebase:', err);
+    }
+  }
+
   function formatDate(ts){
     return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
   }
@@ -1065,35 +1108,45 @@
   function finalizeSend(recipientId){
     const letters = loadLetters();
     const idx = letters.findIndex(l => l.id === editingId);
-    if (idx > -1){
-      letters[idx].status = 'enviada';
-      letters[idx].recipientId = recipientId;
-      letters[idx].sentAt = Date.now();
-      persistLetters(letters);
+    if (idx === -1){
+      closeEditor();
+      return;
+    }
 
+    letters[idx].status = 'enviada';
+    letters[idx].recipientId = recipientId;
+    letters[idx].sentAt = Date.now();
+    persistLetters(letters);
+
+    const mailPayload = {
+      toId: recipientId,
+      fromId: getMyId(),
+      deliveredAt: Date.now(),
+      read: false,
+      letter: JSON.parse(JSON.stringify(letters[idx]))
+    };
+
+    if (firebaseReady){
+      db.collection('mail').add(mailPayload)
+        .then(() => showToast(`Carta enviada para ${recipientId} ✦`))
+        .catch(err => {
+          console.error('Falha ao enviar pelo servidor:', err);
+          showToast('Não consegui enviar pela nuvem — verifique a configuração do Firebase.');
+        });
+    } else {
       const mailbox = loadMailbox();
       if (!mailbox[recipientId]) mailbox[recipientId] = [];
-      mailbox[recipientId].push({
-        mailId: uid('mail'),
-        fromId: getMyId(),
-        deliveredAt: Date.now(),
-        read: false,
-        letter: JSON.parse(JSON.stringify(letters[idx]))
-      });
+      mailbox[recipientId].push({ mailId: uid('mail'), ...mailPayload });
       persistMailbox(mailbox);
+      renderInbox();
+      showToast(`Carta enviada para ${recipientId} ✦ (modo local — configure o Firebase para enviar entre aparelhos diferentes)`);
     }
 
     renderMyLetters();
-    renderInbox();
     closeEditor();
-    showToast(`Carta enviada para ${recipientId} ✦`);
   }
 
-  function renderInbox(){
-    const mailbox = loadMailbox();
-    const myId = getMyId();
-    const items = (mailbox[myId] || []).slice().sort((a, b) => b.deliveredAt - a.deliveredAt);
-
+  function renderInboxItems(items){
     if (items.length === 0){
       inboxGrid.innerHTML = `<div class="correio__empty">Nenhuma carta chegou ainda.<br>Compartilhe seu ID (acima) para receber a primeira ♡</div>`;
       return;
@@ -1129,6 +1182,45 @@
       btn.addEventListener('click', () => openViewer(entry));
       inboxGrid.appendChild(btn);
     });
+  }
+
+  function renderInboxLocal(){
+    const mailbox = loadMailbox();
+    const myId = getMyId();
+    const items = (mailbox[myId] || []).slice().sort((a, b) => b.deliveredAt - a.deliveredAt);
+    renderInboxItems(items);
+  }
+
+  let inboxUnsubscribe = null;
+
+  function renderInbox(){
+    // No modo Firestore o listener abaixo já mantém a tela sempre
+    // atualizada sozinho; esta função continua existindo para o modo
+    // local (e para não quebrar chamadas antigas espalhadas pelo app).
+    if (!firebaseReady) renderInboxLocal();
+  }
+
+  function startInboxSync(){
+    if (!firebaseReady){
+      renderInboxLocal();
+      return;
+    }
+    const myId = getMyId();
+    if (inboxUnsubscribe) inboxUnsubscribe();
+    inboxUnsubscribe = db.collection('mail')
+      .where('toId', '==', myId)
+      .orderBy('deliveredAt', 'desc')
+      .onSnapshot(
+        snapshot => {
+          const items = snapshot.docs.map(doc => Object.assign({ _docId: doc.id }, doc.data()));
+          renderInboxItems(items);
+        },
+        err => {
+          console.error('Firestore (correio) indisponível:', err);
+          showToast('Sem conexão com a nuvem — mostrando cartas salvas neste aparelho.');
+          renderInboxLocal();
+        }
+      );
   }
 
   copyIdBtn.addEventListener('click', () => {
@@ -1170,6 +1262,14 @@
   function markCurrentMailRead(){
     if (!currentMailEntry || currentMailEntry.read) return;
     currentMailEntry.read = true;
+
+    if (firebaseReady && currentMailEntry._docId){
+      db.collection('mail').doc(currentMailEntry._docId).update({ read: true }).catch(err => {
+        console.error('Falha ao marcar como lida:', err);
+      });
+      return; // o listener em tempo real já atualiza a lista sozinho
+    }
+
     const mailbox = loadMailbox();
     const myId = getMyId();
     const arr = mailbox[myId] || [];
@@ -1275,6 +1375,9 @@
   myIdValue.textContent = getMyId();
   applyLetterToDOM();
   renderMyLetters();
-  renderInbox();
+  startInboxSync();
+  if (firebaseReady){
+    showToast('Conectado à nuvem — envio funciona entre aparelhos diferentes ✦');
+  }
 
 })();

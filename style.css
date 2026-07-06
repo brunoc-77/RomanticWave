@@ -682,7 +682,11 @@ input{ font-family: inherit; }
 .seal-btn:hover:not(:disabled){ background: rgba(255,255,255,.18); transform: translateY(-1px); }
 .seal-btn:disabled{ opacity: .38; cursor: not-allowed; }
 
-/* ---- objeto único: carta + envelope no mesmo espaço 3D ---- */
+/* ---- objeto único: carta + envelope no mesmo espaço 3D ----
+   Importante: NENHUM elemento do envelope usa translateZ. Profundidade
+   é resolvida só pela ORDEM no DOM (fundo -> bolso -> carta -> aba),
+   o que é 100% previsível e nunca deixa "vãos" ou a carta vazando por
+   cima do envelope, façam a perspectiva ou o navegador o que fizerem. */
 .letter-object{
   position: absolute;
   inset: 0;
@@ -693,18 +697,16 @@ input{ font-family: inherit; }
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transform: translateY(0) translateZ(0) scale(1) rotateX(0deg);
+  transform: translateY(0) scale(1) rotateX(0deg);
   transition: transform .95s var(--ease) .3s, opacity .5s var(--ease) .26s;
 }
 .letter-object.is-sealed .card-anim{
-  transform: translateY(46%) translateZ(-42px) scale(.8) rotateX(10deg);
+  transform: translateY(42%) scale(.8) rotateX(8deg);
   opacity: 0;
   pointer-events: none;
-  transition: transform 1s var(--ease), opacity .5s var(--ease) .46s;
+  transition: transform 1s var(--ease), opacity .45s var(--ease) .5s;
 }
 
-/* corpo do envelope — discretamente maior que a carta, nunca uma
-   "auréola" solta: só o suficiente pra parecer que ela cabe dentro */
 .env3d__back,
 .env3d__pocket,
 .env3d__flap{
@@ -718,12 +720,13 @@ input{ font-family: inherit; }
 .letter-object.has-envelope .env3d__pocket{ opacity: 1; }
 .letter-object.has-envelope .env3d__flap{ opacity: 1; pointer-events: auto; cursor: pointer; }
 
+/* fundo: um retângulo SÓLIDO e opaco, sempre do tamanho do palco.
+   É a "rede de segurança" — nada nunca aparece atrás dele. */
 .env3d__back{
-  inset: -3.5% -4%;
+  inset: -3% -3.4%;
   border-radius: calc(var(--radius-md) + 6px);
   background: var(--env-color);
-  box-shadow: 0 22px 46px rgba(0,0,0,.38);
-  transform: translateZ(-56px);
+  box-shadow: 0 20px 42px rgba(0,0,0,.36);
 }
 .env3d__back::before{
   content: '';
@@ -731,52 +734,51 @@ input{ font-family: inherit; }
   inset: 0;
   border-radius: inherit;
   background:
-    linear-gradient(160deg, rgba(0,0,0,.16) 0%, transparent 38%),
-    linear-gradient(210deg, rgba(0,0,0,.14) 0%, transparent 38%),
-    linear-gradient(0deg, rgba(0,0,0,.12), transparent 46%);
+    linear-gradient(160deg, rgba(0,0,0,.15) 0%, transparent 40%),
+    linear-gradient(210deg, rgba(0,0,0,.13) 0%, transparent 40%),
+    linear-gradient(0deg, rgba(0,0,0,.12), transparent 42%);
 }
 
-/* bolso: uma lâmina baixa na base, sempre presente — dá a sensação de
-   que a carta realmente repousa dentro do envelope, mesmo aberta */
+/* bolso: uma lâmina BEM discreta na base — fica atrás da carta o
+   tempo todo (nunca na frente), só reforça que ela repousa ali dentro */
 .env3d__pocket{
-  inset: -3.5% -4%;
+  inset: -3% -3.4%;
   border-radius: 0 0 calc(var(--radius-md) + 6px) calc(var(--radius-md) + 6px);
   background: var(--env-color);
-  filter: brightness(.94);
-  clip-path: polygon(0% 100%, 100% 100%, 100% 74%, 50% 92%, 0% 74%);
-  transform: translateZ(16px);
-  box-shadow: 0 -6px 14px rgba(0,0,0,.12);
+  filter: brightness(.93);
+  clip-path: polygon(0% 100%, 100% 100%, 100% 86%, 50% 96%, 0% 86%);
 }
 
-/* aba: proporção rasa (envelope real, não esticado) — a ponta fica a
-   ~34% da altura, nunca perto da base */
+/* aba: dobra rasa e correta pra um envelope em pé (não a proporção
+   "deitada" esticada). Fica por último no DOM = sempre por cima da
+   carta, mesmo aberta (quando aberta, o giro a encolhe visualmente a
+   quase uma lasca fina no topo, saindo do caminho sem sumir de vez). */
 .env3d__flap{
-  inset: -3.5% -4%;
+  inset: -3% -3.4%;
   border-radius: calc(var(--radius-md) + 6px) calc(var(--radius-md) + 6px) 0 0;
   background: var(--env-color);
   filter: brightness(1.12);
-  clip-path: polygon(0% 0%, 100% 0%, 50% 34%);
+  clip-path: polygon(0% 0%, 100% 0%, 50% 33%);
   transform-origin: top center;
-  transform: rotateX(166deg) translateZ(-48px);
-  box-shadow: 0 8px 16px rgba(0,0,0,.18);
+  transform: rotateX(163deg);
+  box-shadow: 0 6px 14px rgba(0,0,0,.16);
   transition: transform .8s var(--ease);
 }
 .letter-object.is-sealed .env3d__flap{
-  transform: rotateX(0deg) translateZ(24px);
+  transform: rotateX(0deg);
   transition: transform .78s var(--ease) .22s;
 }
 .env3d__flap::after{
-  /* vinco sutil no meio da aba, reforçando a dobra física */
   content: '';
   position: absolute;
   inset: 0;
-  clip-path: polygon(0% 0%, 100% 0%, 50% 34%);
+  clip-path: polygon(0% 0%, 100% 0%, 50% 33%);
   background: linear-gradient(180deg, rgba(255,255,255,.14), transparent 60%);
   pointer-events: none;
 }
 .env3d__seal{
   position: absolute;
-  left: 50%; top: 24%;
+  left: 50%; top: 22%;
   transform: translate(-50%, -50%) scale(.5);
   width: 38px; height: 38px;
   border-radius: 50%;
