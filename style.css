@@ -693,34 +693,37 @@ input{ font-family: inherit; }
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transition: transform .9s var(--ease) .32s, opacity .5s var(--ease) .28s;
+  transform: translateY(0) translateZ(0) scale(1) rotateX(0deg);
+  transition: transform .95s var(--ease) .3s, opacity .5s var(--ease) .26s;
 }
 .letter-object.is-sealed .card-anim{
-  transform: translateY(44%) translateZ(-70px) scale(.76) rotateX(12deg);
+  transform: translateY(46%) translateZ(-42px) scale(.8) rotateX(10deg);
   opacity: 0;
   pointer-events: none;
-  transition: transform 1.05s var(--ease), opacity .55s var(--ease) .5s;
+  transition: transform 1s var(--ease), opacity .5s var(--ease) .46s;
 }
 
-/* corpo do envelope: uma "manga" alinhada e ligeiramente maior que a
-   carta, para parecer que ela realmente cabe e é contida por ele */
+/* corpo do envelope — discretamente maior que a carta, nunca uma
+   "auréola" solta: só o suficiente pra parecer que ela cabe dentro */
 .env3d__back,
+.env3d__pocket,
 .env3d__flap{
   position: absolute;
-  left: -7%; right: -7%; top: -6%; bottom: -6%;
-  border-radius: calc(var(--radius-md) + 10px);
   --env-color: var(--kraft);
   opacity: 0;
   pointer-events: none;
   transition: opacity .5s var(--ease);
 }
-.letter-object.has-envelope .env3d__back{ opacity: 1; }
+.letter-object.has-envelope .env3d__back,
+.letter-object.has-envelope .env3d__pocket{ opacity: 1; }
 .letter-object.has-envelope .env3d__flap{ opacity: 1; pointer-events: auto; cursor: pointer; }
 
 .env3d__back{
+  inset: -3.5% -4%;
+  border-radius: calc(var(--radius-md) + 6px);
   background: var(--env-color);
-  box-shadow: 0 24px 50px rgba(0,0,0,.4);
-  transform: translateZ(-40px);
+  box-shadow: 0 22px 46px rgba(0,0,0,.38);
+  transform: translateZ(-56px);
 }
 .env3d__back::before{
   content: '';
@@ -728,40 +731,69 @@ input{ font-family: inherit; }
   inset: 0;
   border-radius: inherit;
   background:
-    linear-gradient(155deg, rgba(0,0,0,.16) 0%, transparent 42%),
-    linear-gradient(205deg, rgba(0,0,0,.16) 0%, transparent 42%),
-    linear-gradient(0deg, rgba(0,0,0,.1), transparent 55%);
+    linear-gradient(160deg, rgba(0,0,0,.16) 0%, transparent 38%),
+    linear-gradient(210deg, rgba(0,0,0,.14) 0%, transparent 38%),
+    linear-gradient(0deg, rgba(0,0,0,.12), transparent 46%);
 }
 
-.env3d__flap{
+/* bolso: uma lâmina baixa na base, sempre presente — dá a sensação de
+   que a carta realmente repousa dentro do envelope, mesmo aberta */
+.env3d__pocket{
+  inset: -3.5% -4%;
+  border-radius: 0 0 calc(var(--radius-md) + 6px) calc(var(--radius-md) + 6px);
   background: var(--env-color);
-  filter: brightness(1.1);
-  clip-path: polygon(0 0, 100% 0, 50% 88%);
+  filter: brightness(.94);
+  clip-path: polygon(0% 100%, 100% 100%, 100% 74%, 50% 92%, 0% 74%);
+  transform: translateZ(16px);
+  box-shadow: 0 -6px 14px rgba(0,0,0,.12);
+}
+
+/* aba: proporção rasa (envelope real, não esticado) — a ponta fica a
+   ~34% da altura, nunca perto da base */
+.env3d__flap{
+  inset: -3.5% -4%;
+  border-radius: calc(var(--radius-md) + 6px) calc(var(--radius-md) + 6px) 0 0;
+  background: var(--env-color);
+  filter: brightness(1.12);
+  clip-path: polygon(0% 0%, 100% 0%, 50% 34%);
   transform-origin: top center;
-  transform: translateZ(6px) rotateX(168deg);
-  box-shadow: 0 10px 18px rgba(0,0,0,.16);
-  transition: transform .78s var(--ease), opacity .5s var(--ease);
+  transform: rotateX(166deg) translateZ(-48px);
+  box-shadow: 0 8px 16px rgba(0,0,0,.18);
+  transition: transform .8s var(--ease);
 }
 .letter-object.is-sealed .env3d__flap{
-  transform: translateZ(6px) rotateX(0deg);
-  transition: transform .74s var(--ease) .3s, opacity .5s var(--ease);
+  transform: rotateX(0deg) translateZ(24px);
+  transition: transform .78s var(--ease) .22s;
+}
+.env3d__flap::after{
+  /* vinco sutil no meio da aba, reforçando a dobra física */
+  content: '';
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(0% 0%, 100% 0%, 50% 34%);
+  background: linear-gradient(180deg, rgba(255,255,255,.14), transparent 60%);
+  pointer-events: none;
 }
 .env3d__seal{
   position: absolute;
-  left: 50%; top: 40%;
-  transform: translate(-50%, -50%);
-  width: 36px; height: 36px;
+  left: 50%; top: 24%;
+  transform: translate(-50%, -50%) scale(.5);
+  width: 38px; height: 38px;
   border-radius: 50%;
   background: var(--gold);
   color: var(--white-satin);
   display: grid;
   place-items: center;
-  font-size: 1rem;
-  box-shadow: 0 4px 10px rgba(0,0,0,.28);
+  font-size: 1.05rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
   opacity: 0;
-  transition: opacity .4s var(--ease) .3s;
+  transition: opacity .35s var(--ease), transform .4s var(--ease);
 }
-.letter-object.is-sealed .env3d__seal{ opacity: 1; }
+.letter-object.is-sealed .env3d__seal{
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  transition: opacity .3s var(--ease) .7s, transform .4s var(--ease) .7s;
+}
 
 /* tamanhos da carta */
 .stage__scene.size--pequena{ max-width: 300px; }
